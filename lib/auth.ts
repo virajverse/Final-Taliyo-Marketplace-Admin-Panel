@@ -154,8 +154,7 @@ export async function requireSuperAdmin(request: NextRequest): Promise<AdminUser
 // Admin login function
 export async function loginAdmin(email: string, password: string): Promise<{ admin: AdminUser; token: string } | null> {
   try {
-    // For demo purposes, we'll use a simple password check
-    // In production, use proper password hashing (bcrypt, etc.)
+    // Simple password check - use proper password hashing in production
     const ADMIN_PASSWORDS: { [key: string]: string } = {
       'admin@taliyotechnologies.com': 'admin123',
       'manager@taliyotechnologies.com': 'manager123'

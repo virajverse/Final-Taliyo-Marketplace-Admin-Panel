@@ -122,14 +122,7 @@ const Login = ({ user }) => {
           </button>
         </form>
 
-        {/* Login Credentials Info */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</h3>
-          <div className="text-xs text-blue-800 space-y-1">
-            <p><strong>Super Admin:</strong> taliyotechnologies@gmail.com / Taliyo(019)</p>
-            <p><strong>Admin:</strong> admin@taliyotechnologies.com / admin123</p>
-          </div>
-        </div>
+
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500">

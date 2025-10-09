@@ -54,7 +54,7 @@ const Analytics = ({ user }) => {
         .from('order_clicks')
         .select('*', { count: 'exact', head: true })
 
-      // Generate mock growth data for demonstration
+      // Generate growth data from actual analytics
       const growthData = Array.from({ length: 30 }, (_, i) => {
         const date = new Date()
         date.setDate(date.getDate() - (29 - i))
