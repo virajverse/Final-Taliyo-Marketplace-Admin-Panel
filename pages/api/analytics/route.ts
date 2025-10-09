@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient.js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       .insert([{
         service_id: body.service_id,
         event_type: body.event_type,
-        user_ip: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        user_ip: request.headers.get('x-forwarded-for') || 'unknown',
         user_agent: request.headers.get('user-agent') || 'unknown',
         referrer: body.referrer
       }])

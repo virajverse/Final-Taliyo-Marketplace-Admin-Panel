@@ -1,8 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/settings": "pages/settings.js",
-  "/manage-admins": "pages/manage-admins.js",
-  "/analytics": "pages/analytics.js"
-}
+{"/_document":"pages/_document.js","/api/analytics/route":"pages/api/analytics/route.js","/api/bookings/route":"pages/api/bookings/route.js","/api/services/[id]/route":"pages/api/services/[id]/route.js","/api/categories/route":"pages/api/categories/route.js","/api/services/route":"pages/api/services/route.js","/api/subcategories/route":"pages/api/subcategories/route.js","/":"pages/index.html","/_app":"pages/_app.js","/auth/callback":"pages/auth/callback.html","/analytics":"pages/analytics.html","/manage-admins":"pages/manage-admins.html","/_error":"pages/_error.js","/settings":"pages/settings.html","/login":"pages/login.html","/manage-categories":"pages/manage-categories.html","/tracking":"pages/tracking.html","/upload":"pages/upload.html","/manage-items":"pages/manage-items.html","/404":"pages/404.html"}
