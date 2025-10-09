@@ -1,0 +1,8 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/settings": "pages/settings.js",
+  "/manage-admins": "pages/manage-admins.js",
+  "/analytics": "pages/analytics.js"
+}
