@@ -97,11 +97,43 @@ export default function Bookings() {
     }
   };
 
-  const filteredBookings = bookings.filter(booking =>
-    booking.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    booking.service_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    booking.phone?.includes(searchTerm)
-  );
+  // Robust search filter: when searchTerm is empty, show all
+  const normalizedTerm = (searchTerm || '').trim().toLowerCase();
+  const filteredBookings = bookings.filter(booking => {
+    if (!normalizedTerm) return true;
+    const full = (booking.full_name || '').toLowerCase();
+    const service = (booking.service_title || '').toLowerCase();
+    const phone = String(booking.phone || '');
+    return full.includes(normalizedTerm) || service.includes(normalizedTerm) || phone.includes(normalizedTerm);
+  });
+
+  // Export bookings to CSV
+  const exportBookingsToCSV = () => {
+    const rows = bookings || [];
+    if (!rows.length) {
+      alert('No bookings to export');
+      return;
+    }
+    const headers = [
+      'id','full_name','phone','email','whatsapp_number','service_title','service_price','status','created_at','updated_at'
+    ];
+    const escape = (val) => {
+      const s = String(val ?? '').replace(/"/g, '""');
+      return `"${s}"`;
+    };
+    const csv = [headers.join(',')]
+      .concat(rows.map(b => headers.map(h => escape(b[h])).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bookings_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const BookingModal = ({ booking, onClose, onStatusUpdate }) => {
     const [newStatus, setNewStatus] = useState(booking.status);
@@ -332,7 +364,7 @@ export default function Bookings() {
             <p className="text-gray-600 mt-1">Manage customer bookings and orders</p>
           </div>
           <div className="flex items-center space-x-3">
-            <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button onClick={exportBookingsToCSV} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
               Export Data
             </button>
           </div>
@@ -350,10 +382,16 @@ export default function Bookings() {
               cancelled: 'bg-red-100 text-red-800 border-red-200'
             };
             return (
-              <div key={status} className={`rounded-xl p-4 border ${colors[status]}`}>
+              <button
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                key={status}
+                className={`text-left w-full rounded-xl p-4 border transition-shadow ${colors[status]} ${statusFilter === status ? 'ring-2 ring-offset-2 ring-blue-500' : ''}`}
+                title={`Show ${status.replace('-', ' ')}`}
+              >
                 <div className="text-2xl font-bold">{count}</div>
                 <div className="text-sm font-medium capitalize">{status.replace('-', ' ')}</div>
-              </div>
+              </button>
             );
           })}
         </div>

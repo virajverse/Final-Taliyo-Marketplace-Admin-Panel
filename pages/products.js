@@ -42,12 +42,16 @@ const Products = ({ user }) => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [selectedProducts, setSelectedProducts] = useState([])
+  const [uploadingImages, setUploadingImages] = useState(false)
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
     inactive: 0,
     revenue: 0
   })
+  const [sortBy, setSortBy] = useState('newest') // newest | price_low | price_high
+  const [validation, setValidation] = useState({})
+  const [dragIndex, setDragIndex] = useState(null)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -74,7 +78,7 @@ const Products = ({ user }) => {
   useEffect(() => {
     applyFilters()
     calculateStats()
-  }, [products, searchQuery, typeFilter, statusFilter])
+  }, [products, searchQuery, typeFilter, statusFilter, sortBy])
 
   const loadProducts = async () => {
     try {
@@ -128,6 +132,72 @@ const Products = ({ user }) => {
     }
   }
 
+  // Image upload handlers (Supabase Storage: service-images bucket)
+  const handleImageSelect = async (event) => {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    const current = Array.isArray(formData.images) ? formData.images.length : 0
+    const capacity = Math.max(0, 6 - current)
+    if (capacity === 0) {
+      setError('You can upload up to 6 images')
+      if (event?.target) event.target.value = ''
+      return
+    }
+    const toUpload = files.slice(0, capacity)
+    setUploadingImages(true)
+    try {
+      const newUrls = []
+      for (const file of toUpload) {
+        const ext = file.name.split('.').pop()
+        const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+        const { data, error } = await supabase.storage
+          .from('service-images')
+          .upload(path, file)
+        if (error) {
+          console.error('Image upload failed:', error)
+          continue
+        }
+        const { data: pub } = supabase.storage
+          .from('service-images')
+          .getPublicUrl(data.path)
+        if (pub?.publicUrl) newUrls.push(pub.publicUrl)
+      }
+      if (newUrls.length) {
+        setFormData(prev => ({
+          ...prev,
+          images: [
+            ...(Array.isArray(prev.images) ? prev.images : []),
+            ...newUrls
+          ]
+        }))
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      setError('Failed to upload one or more images')
+    } finally {
+      setUploadingImages(false)
+      if (event?.target) event.target.value = ''
+    }
+  }
+
+  const removeImage = (url) => {
+    setFormData(prev => ({
+      ...prev,
+      images: (Array.isArray(prev.images) ? prev.images : []).filter(u => u !== url)
+    }))
+  }
+
+  const handleDropReorder = (targetIdx) => {
+    setFormData(prev => {
+      const arr = Array.isArray(prev.images) ? [...prev.images] : []
+      if (dragIndex == null || dragIndex === targetIdx || dragIndex < 0 || dragIndex >= arr.length) return prev
+      const [moved] = arr.splice(dragIndex, 1)
+      arr.splice(targetIdx, 0, moved)
+      return { ...prev, images: arr }
+    })
+    setDragIndex(null)
+  }
+
   const calculateStats = () => {
     const total = products.length
     const active = products.filter(p => p.is_active).length
@@ -161,13 +231,42 @@ const Products = ({ user }) => {
       filtered = filtered.filter(product => product.is_active === isActive)
     }
 
-    setFilteredProducts(filtered)
+    // Sort
+    let sorted = [...filtered]
+    if (sortBy === 'price_low') {
+      sorted.sort((a, b) => (a.price_min ?? Infinity) - (b.price_min ?? Infinity))
+    } else if (sortBy === 'price_high') {
+      sorted.sort((a, b) => (b.price_min ?? -Infinity) - (a.price_min ?? -Infinity))
+    } else {
+      // newest by created_at desc
+      sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }
+
+    setFilteredProducts(sorted)
+  }
+
+  const validateForm = () => {
+    const v = {}
+    if (!formData.title?.trim()) v.title = 'Title is required'
+    const min = formData.price_min !== '' ? Number(formData.price_min) : null
+    const max = formData.price_max !== '' ? Number(formData.price_max) : null
+    if (formData.price_min !== '' && Number.isNaN(min)) v.price_min = 'Min price must be a number'
+    if (formData.price_max !== '' && Number.isNaN(max)) v.price_max = 'Max price must be a number'
+    if (min != null && max != null && !Number.isNaN(min) && !Number.isNaN(max) && max < min) {
+      v.price_max = 'Max price must be greater than or equal to Min price'
+    }
+    setValidation(v)
+    return Object.keys(v).length === 0
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
+    if (!validateForm()) {
+      setError('Please fix the highlighted fields')
+      return
+    }
 
     try {
       const productData = {
@@ -232,7 +331,7 @@ const Products = ({ user }) => {
     }
   }
 
-  const resetForm = () => {
+  const resetForm = (close = true) => {
     setFormData({
       title: '',
       description: '',
@@ -248,7 +347,7 @@ const Products = ({ user }) => {
       duration_minutes: '',
       tags: ''
     })
-    setShowAddForm(false)
+    if (close) setShowAddForm(false)
     setEditingProduct(null)
   }
 
@@ -376,6 +475,12 @@ const Products = ({ user }) => {
             </button>
           </div>
         </div>
+        {(Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)) > 1 && (
+          <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
+            <ImageIcon size={12} />
+            <span>{Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)}</span>
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
@@ -446,9 +551,9 @@ const Products = ({ user }) => {
             </button>
             <button
               onClick={() => {
-                setShowAddForm(true)
                 setEditingProduct(null)
-                resetForm()
+                resetForm(false)
+                setShowAddForm(true)
               }}
               className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
             >
@@ -456,57 +561,7 @@ const Products = ({ user }) => {
               Add Product
             </button>
           </div>
-        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Package size={24} className="text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Eye size={24} className="text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-lg">
-                <EyeOff size={24} className="text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Value</p>
-                <p className="text-2xl font-bold text-purple-600">₹{stats.revenue.toLocaleString()}</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <DollarSign size={24} className="text-purple-600" />
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Alerts */}
@@ -535,7 +590,7 @@ const Products = ({ user }) => {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-200 p-6 sticky top-0 z-30">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
@@ -574,6 +629,17 @@ const Products = ({ user }) => {
                 <option value="inactive">Inactive</option>
               </select>
 
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="newest">Newest</option>
+                <option value="price_low">Price: Low → High</option>
+                <option value="price_high">Price: High → Low</option>
+              </select>
+
               {/* View Mode Toggle */}
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
@@ -593,6 +659,13 @@ const Products = ({ user }) => {
                   <List size={16} />
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setTypeFilter('all'); setStatusFilter('all'); }}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Reset
+              </button>
             </div>
           </div>
         </div>
@@ -634,19 +707,39 @@ const Products = ({ user }) => {
                 <div className="space-y-4">
                   {filteredProducts.map((product) => (
                     <div key={product.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{product.title}</h3>
-                        <p className="text-sm text-gray-600">{product.category}</p>
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="h-12 w-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                          {(Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)) > 0 ? (
+                            <img
+                              src={Array.isArray(product.images) ? product.images[0] : JSON.parse(product.images)[0]}
+                              alt={product.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <ImageIcon size={20} className="text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{product.title}</h3>
+                          <p className="text-sm text-gray-600">{product.category}</p>
+                        </div>
                       </div>
                       <div className="flex items-center space-x-4">
                         <span className="text-sm font-medium">
                           {product.price_min ? `₹${product.price_min}` : 'N/A'}
                         </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          product.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {product.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={product.is_active}
+                            onChange={() => toggleProductStatus(product.id, product.is_active)}
+                            className="h-4 w-8 appearance-none bg-gray-300 rounded-full relative outline-none cursor-pointer transition-all"
+                            style={{ backgroundColor: product.is_active ? '#86efac' : undefined }}
+                          />
+                          <span>{product.is_active ? 'Active' : 'Inactive'}</span>
+                        </label>
                         <div className="flex space-x-2">
                           <button onClick={() => handleEdit(product)} className="text-blue-600">
                             <Edit size={16} />
@@ -692,9 +785,12 @@ const Products = ({ user }) => {
                         type="text"
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${validation.title ? 'border-red-500' : 'border-gray-300'}`}
                         required
                       />
+                      {validation.title && (
+                        <p className="text-xs text-red-600 mt-1">{validation.title}</p>
+                      )}
                     </div>
 
                     <div>
@@ -745,10 +841,13 @@ const Products = ({ user }) => {
                           type="number"
                           value={formData.price_min}
                           onChange={(e) => setFormData({ ...formData, price_min: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${validation.price_min ? 'border-red-500' : 'border-gray-300'}`}
                           step="0.01"
                           min="0"
                         />
+                        {validation.price_min && (
+                          <p className="text-xs text-red-600 mt-1">{validation.price_min}</p>
+                        )}
                       </div>
 
                       <div>
@@ -757,10 +856,13 @@ const Products = ({ user }) => {
                           type="number"
                           value={formData.price_max}
                           onChange={(e) => setFormData({ ...formData, price_max: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${validation.price_max ? 'border-red-500' : 'border-gray-300'}`}
                           step="0.01"
                           min="0"
                         />
+                        {validation.price_max && (
+                          <p className="text-xs text-red-600 mt-1">{validation.price_max}</p>
+                        )}
                       </div>
                     </div>
 
@@ -797,6 +899,43 @@ const Products = ({ user }) => {
                       </label>
                     </div>
                   </div>
+                </div>
+
+                {/* Images */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-gray-900">Images</h3>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <input id="image-upload" type="file" accept="image/*" multiple onChange={handleImageSelect} disabled={uploadingImages} className="hidden" />
+                    <label htmlFor="image-upload" className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer">
+                      <ImageIcon size={16} className="mr-2 text-gray-600" /> Browse images
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">JPG/PNG up to 5MB each. You can select multiple. Max 6 images.</p>
+                    {uploadingImages && <p className="text-sm text-gray-500 mt-2">Uploading...</p>}
+                  </div>
+                  {Array.isArray(formData.images) && formData.images.length > 0 && (
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                      {formData.images.map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="relative border rounded overflow-hidden cursor-move"
+                          draggable
+                          onDragStart={() => setDragIndex(idx)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDropReorder(idx)}
+                          title="Drag to reorder"
+                        >
+                          <img src={url} alt="product" className="h-24 w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(url)}
+                            className="absolute top-1 right-1 bg-white/90 text-red-600 px-2 py-0.5 rounded text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
