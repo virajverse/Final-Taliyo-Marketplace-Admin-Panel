@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import ModernLayout from '../components/ModernLayout';
 import { createClient } from '@supabase/supabase-js';
+import { checkSession } from '../lib/simpleAuth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,9 +17,9 @@ export default function Bookings() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // Check authentication
-    const isAuthenticated = localStorage.getItem('adminAuth') === 'true';
-    if (!isAuthenticated) {
+    // Check authentication via shared session
+    const session = checkSession();
+    if (!session) {
       router.push('/login');
       return;
     }

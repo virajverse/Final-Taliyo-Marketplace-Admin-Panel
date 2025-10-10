@@ -31,13 +31,12 @@ const ModernHeader = ({ user, onMenuClick }) => {
         setShowNotifications(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('adminAuth')
+    localStorage.removeItem('admin_session')
     router.push('/login')
   }
 
@@ -46,6 +45,7 @@ const ModernHeader = ({ user, onMenuClick }) => {
     { id: 2, title: 'Product uploaded', message: 'Mobile App Design added', time: '1 hour ago', unread: true },
     { id: 3, title: 'Analytics report', message: 'Weekly summary available', time: '3 hours ago', unread: false }
   ]
+
 
   const unreadCount = notifications.filter(n => n.unread).length
 
