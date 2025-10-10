@@ -1,1 +1,7 @@
-{"/_app":"pages/_app.js","/_document":"pages/_document.js","/analytics":"pages/analytics.html","/api/bookings/route":"pages/api/bookings/route.js","/api/analytics/route":"pages/api/analytics/route.js","/api/categories/route":"pages/api/categories/route.js","/api/services/[id]/route":"pages/api/services/[id]/route.js","/api/services/route":"pages/api/services/route.js","/api/subcategories/route":"pages/api/subcategories/route.js","/auth/callback":"pages/auth/callback.html","/login":"pages/login.html","/":"pages/index.html","/manage-admins":"pages/manage-admins.html","/manage-categories":"pages/manage-categories.html","/manage-items":"pages/manage-items.html","/settings":"pages/settings.html","/tracking":"pages/tracking.html","/upload":"pages/upload.html","/_error":"pages/_error.js","/404":"pages/404.html"}
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/": "pages/index.js",
+  "/login": "pages/login.js"
+}
