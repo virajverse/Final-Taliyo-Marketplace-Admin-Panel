@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Layout from '../components/Layout'
+import ModernLayout from '../components/ModernLayout'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -132,7 +132,7 @@ const Tracking = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -325,7 +325,7 @@ const Tracking = ({ user }) => {
           </div>
         </div>
       </div>
-    </Layout>
+    </ModernLayout>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Layout from '../components/Layout'
+import ModernLayout from '../components/ModernLayout'
 import { 
   Package, 
   Plus, 
@@ -205,7 +205,7 @@ const ManageItems = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -501,7 +501,7 @@ const ManageItems = ({ user }) => {
           </div>
         )}
       </div>
-    </Layout>
+    </ModernLayout>
   )
 }
 

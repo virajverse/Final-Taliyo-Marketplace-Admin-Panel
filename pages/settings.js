@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import Layout from '../components/Layout'
+import ModernLayout from '../components/ModernLayout'
 import { 
   User, 
   Shield, 
@@ -154,7 +154,7 @@ const Settings = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
         <div>
@@ -578,7 +578,7 @@ const Settings = ({ user }) => {
           </div>
         </div>
       </div>
-    </Layout>
+    </ModernLayout>
   )
 }
 

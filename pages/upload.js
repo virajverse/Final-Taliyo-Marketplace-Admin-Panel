@@ -1,4 +1,4 @@
-import Layout from '../components/Layout'
+import ModernLayout from '../components/ModernLayout'
 import UploadSection from '../components/UploadSection'
 
 const Upload = ({ user }) => {
@@ -7,7 +7,7 @@ const Upload = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
         <div>
@@ -52,7 +52,7 @@ const Upload = ({ user }) => {
           </div>
         </div>
       </div>
-    </Layout>
+    </ModernLayout>
   )
 }
 
