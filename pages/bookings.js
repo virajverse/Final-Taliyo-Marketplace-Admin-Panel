@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Sidebar from '../components/Sidebar';
+import ModernLayout from '../components/ModernLayout';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -179,6 +179,30 @@ export default function Bookings() {
               </div>
             </div>
 
+            {/* Cart Items (if this is a cart booking) */}
+            {booking.cart_items && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Cart Items</h3>
+                <div className="space-y-2">
+                  {JSON.parse(booking.cart_items).map((item, index) => (
+                    <div key={index} className="bg-white p-3 rounded border">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-gray-900">{item.title}</p>
+                          <p className="text-sm text-gray-600">Provider: {item.provider_name}</p>
+                          <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">₹{(item.price_min || 0).toLocaleString()}</p>
+                          <p className="text-sm text-gray-600">per item</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Customer Information */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">Customer Information</h3>
@@ -296,32 +320,63 @@ export default function Bookings() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <Sidebar />
-      
-      <div className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bookings Management</h1>
-          <p className="text-gray-600">Manage customer bookings and orders</p>
+    <ModernLayout user={{ email: 'admin@taliyo.com' }}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Bookings Management</h1>
+            <p className="text-gray-600 mt-1">Manage customer bookings and orders</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              Export Data
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map(status => {
+            const count = bookings.filter(b => b.status === status).length;
+            const colors = {
+              pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+              confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
+              'in-progress': 'bg-purple-100 text-purple-800 border-purple-200',
+              completed: 'bg-green-100 text-green-800 border-green-200',
+              cancelled: 'bg-red-100 text-red-800 border-red-200'
+            };
+            return (
+              <div key={status} className={`rounded-xl p-4 border ${colors[status]}`}>
+                <div className="text-2xl font-bold">{count}</div>
+                <div className="text-sm font-medium capitalize">{status.replace('-', ' ')}</div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search by name, service, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by name, service, or phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  🔍
+                </div>
+              </div>
             </div>
-            <div>
+            <div className="flex items-center space-x-4">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -335,7 +390,7 @@ export default function Bookings() {
         </div>
 
         {/* Bookings Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -348,48 +403,58 @@ export default function Bookings() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50/50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Customer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Service
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {filteredBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50">
+                    <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {booking.full_name}
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium text-sm mr-3">
+                            {booking.full_name?.charAt(0) || 'U'}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {booking.phone}
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {booking.full_name || 'Unknown'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {booking.phone}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate">
+                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
                           {booking.service_title}
                         </div>
                         <div className="text-sm text-gray-500">
                           {booking.service_price}
                         </div>
+                        {booking.cart_items && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            Cart Order ({JSON.parse(booking.cart_items).length} items)
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
+                        <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
                       </td>
@@ -399,7 +464,7 @@ export default function Bookings() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => setSelectedBooking(booking)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
                         >
                           View Details
                         </button>
@@ -412,18 +477,6 @@ export default function Bookings() {
           )}
         </div>
 
-        {/* Stats */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
-          {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map(status => {
-            const count = bookings.filter(b => b.status === status).length;
-            return (
-              <div key={status} className="bg-white p-4 rounded-lg shadow-sm">
-                <div className="text-2xl font-bold text-gray-900">{count}</div>
-                <div className="text-sm text-gray-600 capitalize">{status}</div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Booking Detail Modal */}
@@ -434,6 +487,6 @@ export default function Bookings() {
           onStatusUpdate={updateBookingStatus}
         />
       )}
-    </div>
+    </ModernLayout>
   );
 }

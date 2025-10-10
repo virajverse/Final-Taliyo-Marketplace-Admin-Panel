@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import Layout from '../components/Layout'
+import ModernLayout from '../components/ModernLayout'
 import { 
   BarChart3, 
   Users, 
@@ -193,7 +193,7 @@ const Dashboard = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
         <div>
@@ -370,7 +370,7 @@ const Dashboard = ({ user }) => {
 
           
       </div>
-    </Layout>
+    </ModernLayout>
   )
 }
 

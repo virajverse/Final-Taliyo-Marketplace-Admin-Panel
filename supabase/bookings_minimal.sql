@@ -16,7 +16,8 @@ ADD COLUMN IF NOT EXISTS additional_notes TEXT,
 ADD COLUMN IF NOT EXISTS files JSONB,
 ADD COLUMN IF NOT EXISTS service_title TEXT,
 ADD COLUMN IF NOT EXISTS service_price VARCHAR(100),
-ADD COLUMN IF NOT EXISTS provider_name VARCHAR(255);
+ADD COLUMN IF NOT EXISTS provider_name VARCHAR(255),
+ADD COLUMN IF NOT EXISTS cart_items JSONB;
 
 -- Update existing columns to be nullable if they exist
 ALTER TABLE bookings 
