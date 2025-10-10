@@ -20,6 +20,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Upload Data', href: '/upload', icon: Upload },
     { name: 'Click Tracking', href: '/tracking', icon: BarChart3 },
+    { name: 'Bookings', href: '/bookings', icon: MessageSquare },
     { name: 'Manage Categories', href: '/manage-categories', icon: FolderOpen },
     { name: 'Manage Items', href: '/manage-items', icon: Package },
     { name: 'Manage Admins', href: '/manage-admins', icon: Users },
