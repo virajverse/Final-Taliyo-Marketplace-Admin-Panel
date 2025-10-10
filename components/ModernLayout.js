@@ -17,7 +17,6 @@ const ModernLayout = ({ children, user }) => {
     const handleRouteChange = () => {
       setSidebarOpen(false)
     }
-
     router.events.on('routeChangeStart', handleRouteChange)
     return () => {
       router.events.off('routeChangeStart', handleRouteChange)
@@ -33,7 +32,7 @@ const ModernLayout = ({ children, user }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 lg:flex">
       {/* Sidebar */}
       <ModernSidebar 
         isOpen={sidebarOpen} 
@@ -41,7 +40,7 @@ const ModernLayout = ({ children, user }) => {
       />
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className="flex-1">
         {/* Header */}
         <ModernHeader 
           user={user}
@@ -58,5 +57,3 @@ const ModernLayout = ({ children, user }) => {
     </div>
   )
 }
-
-export default ModernLayout
