@@ -57,3 +57,5 @@ const ModernLayout = ({ children, user }) => {
     </div>
   )
 }
+
+export default ModernLayout
