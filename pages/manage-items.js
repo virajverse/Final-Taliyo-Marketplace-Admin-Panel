@@ -41,6 +41,26 @@ const ManageItems = ({ user }) => {
   }, [user])
 
   useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('manage_items_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        loadItems()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => loadItems(), 10000)
+    return () => clearInterval(id)
+  }, [user])
+
+  useEffect(() => {
     applyFilters()
   }, [items, searchQuery, typeFilter])
 

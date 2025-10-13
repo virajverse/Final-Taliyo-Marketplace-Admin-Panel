@@ -27,6 +27,26 @@ export default function Bookings() {
     fetchBookings();
   }, [router, statusFilter]);
 
+  useEffect(() => {
+    // Realtime subscription for bookings
+    const channel = supabase
+      .channel('bookings_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        fetchBookings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [statusFilter]);
+
+  useEffect(() => {
+    // Polling fallback every 10s
+    const id = setInterval(() => fetchBookings(), 10000);
+    return () => clearInterval(id);
+  }, [statusFilter]);
+
   const fetchBookings = async () => {
     try {
       setLoading(true);

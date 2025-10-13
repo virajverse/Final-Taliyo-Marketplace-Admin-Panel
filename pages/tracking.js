@@ -30,6 +30,29 @@ const Tracking = ({ user }) => {
   }, [user, dateRange])
 
   useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('tracking_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_clicks' }, () => {
+        loadClickData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        loadClickData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, dateRange])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => loadClickData(), 10000)
+    return () => clearInterval(id)
+  }, [user, dateRange])
+
+  useEffect(() => {
     applyFilters()
   }, [clickData, filter])
 

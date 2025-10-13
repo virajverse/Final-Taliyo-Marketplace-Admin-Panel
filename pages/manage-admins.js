@@ -28,6 +28,26 @@ const ManageAdmins = ({ user }) => {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('admins_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, () => {
+        loadAdmins()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => loadAdmins(), 10000)
+    return () => clearInterval(id)
+  }, [user])
+
   const loadAdmins = async () => {
     try {
       // Get admins from database
@@ -38,16 +58,8 @@ const ManageAdmins = ({ user }) => {
 
       if (error) throw error
 
-      // Combine with hardcoded admins
-      const hardcodedAdmins = ALLOWED_ADMIN_EMAILS.map(email => ({
-        id: email,
-        email,
-        is_active: true,
-        created_at: '2024-01-01',
-        is_hardcoded: true
-      }))
-
-      setAdmins([...hardcodedAdmins, ...(dbAdmins || [])])
+      // Use only database admins (no mock merge)
+      setAdmins(dbAdmins || [])
     } catch (error) {
       console.error('Error loading admins:', error)
       setError('Failed to load admin list')
