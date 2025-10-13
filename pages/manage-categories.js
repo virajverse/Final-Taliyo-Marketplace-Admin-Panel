@@ -29,6 +29,7 @@ const ManageCategories = ({ user }) => {
   const [expandedCategories, setExpandedCategories] = useState(new Set())
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [syncing, setSyncing] = useState(false)
   
   const [categoryFormData, setCategoryFormData] = useState({
     name: '',
@@ -44,11 +45,54 @@ const ManageCategories = ({ user }) => {
     slug: ''
   })
 
+  const handleSyncCategories = async () => {
+    try {
+      setSyncing(true)
+      setError('')
+      setSuccess('')
+      const res = await fetch('/api/admin/sync-categories', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || 'Sync failed')
+      setSuccess(`Categories synced: ${data.created} created, ${data.updated} updated (unique from items: ${data.totalUnique})`)
+      await Promise.all([loadCategories(), loadSubcategories()])
+    } catch (err) {
+      setError('Sync failed: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   useEffect(() => {
     if (user) {
       loadCategories()
       loadSubcategories()
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('categories_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        loadCategories()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, () => {
+        loadSubcategories()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => {
+      loadCategories()
+      loadSubcategories()
+    }, 10000)
+    return () => clearInterval(id)
   }, [user])
 
   const loadCategories = async () => {
@@ -352,6 +396,13 @@ const ManageCategories = ({ user }) => {
             </p>
           </div>
           <div className="flex space-x-3">
+            <button
+              onClick={handleSyncCategories}
+              disabled={syncing}
+              className={`btn-secondary ${syncing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+              {syncing ? 'Syncing…' : 'Sync Categories'}
+            </button>
             <button
               onClick={() => {
                 setShowAddSubcategoryForm(true)

@@ -52,6 +52,7 @@ const Products = ({ user }) => {
   const [sortBy, setSortBy] = useState('newest') // newest | price_low | price_high
   const [validation, setValidation] = useState({})
   const [dragIndex, setDragIndex] = useState(null)
+  const [syncing, setSyncing] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -73,6 +74,29 @@ const Products = ({ user }) => {
     if (user) {
       loadProducts()
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('products_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => {
+        loadProducts()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        loadProducts()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => loadProducts(), 10000)
+    return () => clearInterval(id)
   }, [user])
 
   useEffect(() => {
@@ -245,6 +269,23 @@ const Products = ({ user }) => {
     setFilteredProducts(sorted)
   }
 
+  const handleSyncToServices = async () => {
+    try {
+      setSyncing(true)
+      setError('')
+      setSuccess('')
+      const res = await fetch('/api/admin/sync-items-to-services', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || 'Sync failed')
+      setSuccess(`Synced: ${data.created} created, ${data.updated} updated`)
+      await loadProducts()
+    } catch (err) {
+      setError('Sync failed: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const validateForm = () => {
     const v = {}
     if (!formData.title?.trim()) v.title = 'Title is required'
@@ -290,7 +331,7 @@ const Products = ({ user }) => {
         productData.images = JSON.stringify(formData.images)
       }
 
-      const tableName = 'services' // Default to services table
+      const tableName = editingProduct?.source === 'items' ? 'items' : 'services' // Use correct table when editing
 
       if (editingProduct) {
         // Update existing product
@@ -548,6 +589,14 @@ const Products = ({ user }) => {
             >
               <Upload size={16} className="mr-2" />
               Bulk Upload
+            </button>
+            <button
+              onClick={handleSyncToServices}
+              disabled={syncing}
+              className={`flex items-center px-4 py-2 border border-gray-300 rounded-lg transition-colors ${syncing ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              <Download size={16} className="mr-2" />
+              {syncing ? 'Syncing…' : 'Sync to Database'}
             </button>
             <button
               onClick={() => {
