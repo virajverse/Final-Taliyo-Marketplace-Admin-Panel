@@ -38,65 +38,18 @@ const Analytics = ({ user }) => {
 
   const loadAnalytics = async () => {
     try {
-      // Get date range
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(timeRange))
-
-      // Get total items
-      const { count: itemsCount } = await supabase
-        .from('items')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-
-      // Get total clicks
-      const { count: clicksCount } = await supabase
-        .from('order_clicks')
-        .select('*', { count: 'exact', head: true })
-
-      // Generate growth data from actual analytics
-      const growthData = Array.from({ length: 30 }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (29 - i))
-        return {
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          revenue: Math.floor(Math.random() * 5000) + 2000,
-          users: Math.floor(Math.random() * 200) + 100,
-          orders: Math.floor(Math.random() * 50) + 20
-        }
-      })
-
-      // Generate category data
-      const categoryData = [
-        { name: 'Services', value: 45, color: '#8B5CF6' },
-        { name: 'Products', value: 30, color: '#06B6D4' },
-        { name: 'Packages', value: 25, color: '#10B981' }
-      ]
-
-      // Generate click trends
-      const clickTrends = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (6 - i))
-        return {
-          day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-          clicks: Math.floor(Math.random() * 100) + 50
-        }
-      })
-
+      const res = await fetch(`/api/admin/analytics?days=${timeRange}`)
+      if (!res.ok) throw new Error('Analytics API failed')
+      const data = await res.json()
       setAnalytics({
-        totalRevenue: 247500,
-        totalItems: itemsCount || 0,
-        totalClicks: clicksCount || 0,
-        avgRating: 4.8,
-        growthData,
-        categoryData,
-        clickTrends,
-        topItems: [
-          { name: 'Web Development', clicks: 152, revenue: 45600 },
-          { name: 'Mobile App Design', clicks: 128, revenue: 38400 },
-          { name: 'Digital Marketing', clicks: 96, revenue: 28800 },
-          { name: 'Graphic Design', clicks: 84, revenue: 25200 }
-        ]
+        totalRevenue: data.totalRevenue || 0,
+        totalItems: data.totalItems || 0,
+        totalClicks: data.totalClicks || 0,
+        avgRating: data.avgRating || 0,
+        growthData: data.growthData || [],
+        categoryData: data.categoryData || [],
+        clickTrends: data.clickTrends || [],
+        topItems: data.topItems || []
       })
     } catch (error) {
       console.error('Error loading analytics:', error)
@@ -104,6 +57,29 @@ const Analytics = ({ user }) => {
       setLoading(false)
     }
   }
+
+  // Realtime refresh on key tables
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('admin_analytics_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_clicks' }, () => loadAnalytics())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => loadAnalytics())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadAnalytics())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews' }, () => loadAnalytics())
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, timeRange])
+
+  // Polling fallback every 10s
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => loadAnalytics(), 10000)
+    return () => clearInterval(id)
+  }, [user, timeRange])
 
   if (!user) {
     return null

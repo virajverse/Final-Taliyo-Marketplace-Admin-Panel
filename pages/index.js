@@ -25,16 +25,16 @@ const Dashboard = ({ user }) => {
     totalClicks: 0,
     totalAdmins: 0,
     recentClicks: 0,
-    totalRevenue: 127500,
-    avgSessionTime: '02:34',
-    conversionRate: 8.7,
-    responseTime: 95
+    totalRevenue: 0,
+    bookingsCount: 0,
+    conversionRate: 0
   })
   const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
   const [performanceData, setPerformanceData] = useState([])
   const [categoryData, setCategoryData] = useState([])
   const [auditData, setAuditData] = useState([])
+  const [thisMonthRevenue, setThisMonthRevenue] = useState(0)
 
   useEffect(() => {
     if (user) {
@@ -42,8 +42,65 @@ const Dashboard = ({ user }) => {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel('admin_dashboard_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_clicks' }, () => {
+        loadDashboardData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
+        loadDashboardData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, () => {
+        loadDashboardData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
+        loadDashboardData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const id = setInterval(() => {
+      loadDashboardData()
+    }, 10000)
+    return () => clearInterval(id)
+  }, [user])
+
   const loadDashboardData = async () => {
     try {
+      // Try server metrics API (uses service role key) for full, real data
+      try {
+        const res = await fetch('/api/admin/metrics')
+        if (res.ok) {
+          const m = await res.json()
+          setStats({
+            totalItems: m.totalItems || 0,
+            totalClicks: m.totalClicks || 0,
+            totalAdmins: m.totalAdmins || 0,
+            recentClicks: m.recentClicks || 0,
+            totalRevenue: m.totalRevenue || 0,
+            bookingsCount: m.bookingsCount || 0,
+            conversionRate: m.conversionRate || 0
+          })
+          setThisMonthRevenue(m.thisMonthRevenue || 0)
+          setRecentActivity(m.recentActivity || [])
+          setPerformanceData(m.performanceData || [])
+          setCategoryData(m.categoryData || [])
+          setAuditData([])
+          return
+        }
+      } catch (e) {
+        // Fallback to client-side queries below
+      }
+
       // Get total items count (with error handling)
       let itemsCount = 0
       try {
@@ -94,7 +151,41 @@ const Dashboard = ({ user }) => {
         console.log('Recent clicks not accessible:', error.message)
       }
 
-      // Get recent activity
+      // Get bookings count (real)
+      let bookingsCount = 0
+      try {
+        const { count } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+        bookingsCount = count || 0
+      } catch (error) {
+        console.log('Bookings table not accessible:', error.message)
+      }
+
+      // Revenue (sum of confirmed/completed bookings)
+      let totalRevenueVal = 0
+      let thisMonthRevenueVal = 0
+      try {
+        const { data: revRows } = await supabase
+          .from('bookings')
+          .select('final_price,status,created_at')
+          .in('status', ['confirmed', 'completed'])
+          .not('final_price', 'is', null)
+
+        totalRevenueVal = (revRows || []).reduce((sum, r) => sum + Number(r.final_price || 0), 0)
+
+        const monthStart = new Date()
+        monthStart.setDate(1)
+        monthStart.setHours(0, 0, 0, 0)
+        thisMonthRevenueVal = (revRows || []).reduce((sum, r) => {
+          const created = new Date(r.created_at)
+          return created >= monthStart ? sum + Number(r.final_price || 0) : sum
+        }, 0)
+      } catch (error) {
+        console.log('Revenue query failed:', error.message)
+      }
+
+      // Recent activity from real clicks
       const { data: clicks } = await supabase
         .from('order_clicks')
         .select(`
@@ -107,49 +198,86 @@ const Dashboard = ({ user }) => {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      // Generate performance data for chart
-      const performanceData = Array.from({ length: 12 }, (_, i) => {
-        const month = new Date()
-        month.setMonth(month.getMonth() - (11 - i))
-        return {
-          month: month.toLocaleDateString('en-US', { month: 'short' }),
-          growth: Math.floor(Math.random() * 500) + 200,
-          revenue: Math.floor(Math.random() * 50000) + 25000,
-          users: Math.floor(Math.random() * 100) + 50
-        }
-      })
+      const activities = (clicks || []).map(c => ({
+        action: 'Order Click',
+        user: c.user_ip || 'Visitor',
+        target: c.items?.title || 'Unknown',
+        timestamp: new Date(c.created_at).toLocaleString(),
+        status: 'Success'
+      }))
 
-      // Generate category distribution
-      const categoryData = [
-        { name: 'Services', value: 45, color: '#8B5CF6' },
-        { name: 'Products', value: 30, color: '#06B6D4' },
-        { name: 'Packages', value: 25, color: '#10B981' }
-      ]
+      // Real performance data: monthly clicks over last 12 months
+      let perfData = []
+      try {
+        const now = new Date()
+        const months = Array.from({ length: 12 }, (_, i) => {
+          const start = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
+          const end = new Date(now.getFullYear(), now.getMonth() - (11 - i) + 1, 1)
+          return { start, end }
+        })
+        const results = await Promise.all(
+          months.map(async ({ start, end }) => {
+            const { count } = await supabase
+              .from('order_clicks')
+              .select('*', { count: 'exact', head: true })
+              .gte('created_at', start.toISOString())
+              .lt('created_at', end.toISOString())
+            return count || 0
+          })
+        )
+        perfData = months.map((m, idx) => ({
+          month: m.start.toLocaleDateString('en-US', { month: 'short' }),
+          growth: results[idx]
+        }))
+      } catch (error) {
+        console.log('Performance data error:', error.message)
+      }
 
-      // Generate audit data
-      const auditData = [
-        { action: 'Service Created', user: 'Admin', target: 'Web Development', timestamp: '2024-01-15 14:30', status: 'Success' },
-        { action: 'Item Updated', user: 'Admin', target: 'Mobile Design', timestamp: '2024-01-15 13:45', status: 'Success' },
-        { action: 'Category Added', user: 'Admin', target: 'Digital Marketing', timestamp: '2024-01-15 12:20', status: 'Success' },
-        { action: 'Service Activated', user: 'System', target: 'Graphic Design', timestamp: '2024-01-15 11:15', status: 'Success' },
-        { action: 'Analytics Updated', user: 'System', target: 'Monthly Report', timestamp: '2024-01-15 10:30', status: 'Success' }
-      ]
+      // Real category distribution from items.type
+      let catData = []
+      try {
+        const defs = [
+          { key: 'service', name: 'Services', color: '#8B5CF6' },
+          { key: 'product', name: 'Products', color: '#06B6D4' },
+          { key: 'package', name: 'Packages', color: '#10B981' }
+        ]
+        const counts = await Promise.all(
+          defs.map(async d => {
+            const { count } = await supabase
+              .from('items')
+              .select('*', { count: 'exact', head: true })
+              .eq('is_active', true)
+              .eq('type', d.key)
+            return count || 0
+          })
+        )
+        const total = counts.reduce((a, b) => a + b, 0)
+        catData = defs.map((d, i) => ({
+          name: d.name,
+          value: total > 0 ? Math.round((counts[i] / total) * 100) : 0,
+          color: d.color
+        }))
+      } catch (error) {
+        console.log('Category distribution error:', error.message)
+      }
+
+      const conv = clicksCount > 0 ? ((bookingsCount || 0) / clicksCount) * 100 : 0
 
       setStats({
         totalItems: itemsCount || 0,
         totalClicks: clicksCount || 0,
-        totalAdmins: adminsCount || 2,
+        totalAdmins: adminsCount || 0,
         recentClicks: recentClicksCount || 0,
-        totalRevenue: 127500,
-        avgSessionTime: '02:34',
-        conversionRate: 8.7,
-        responseTime: 95
+        totalRevenue: totalRevenueVal,
+        bookingsCount: bookingsCount || 0,
+        conversionRate: Number(conv.toFixed(1))
       })
 
-      setRecentActivity(clicks || [])
-      setPerformanceData(performanceData)
-      setCategoryData(categoryData)
-      setAuditData(auditData)
+      setThisMonthRevenue(thisMonthRevenueVal)
+      setRecentActivity(activities)
+      setPerformanceData(perfData)
+      setCategoryData(catData)
+      setAuditData([])
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     } finally {
@@ -160,29 +288,29 @@ const Dashboard = ({ user }) => {
   const statCards = [
     {
       title: 'Sessions',
-      value: `${stats.totalClicks}k`,
-      subtitle: '+18% from last month',
+      value: stats.totalClicks.toLocaleString(),
+      subtitle: `${stats.recentClicks} in last 24h`,
       icon: Activity,
       gradient: 'from-purple-500 to-purple-600'
     },
     {
-      title: 'Avg Sessions',
-      value: stats.avgSessionTime,
-      subtitle: '+12% from last month',
-      icon: Clock,
+      title: 'Items',
+      value: stats.totalItems.toLocaleString(),
+      subtitle: 'Active items',
+      icon: Package,
       gradient: 'from-blue-500 to-blue-600'
     },
     {
       title: 'Revenue',
-      value: `₹${(stats.totalRevenue / 1000).toFixed(0)}k`,
-      subtitle: '+25% from last month',
+      value: `₹${Math.round(stats.totalRevenue).toLocaleString()}`,
+      subtitle: `This Month: ₹${thisMonthRevenue.toLocaleString()}`,
       icon: DollarSign,
       gradient: 'from-green-500 to-green-600'
     },
     {
       title: 'Conversion Rate',
-      value: `${stats.conversionRate}%`,
-      subtitle: '+8% from last month',
+      value: `${(stats.conversionRate || 0).toFixed(1)}%`,
+      subtitle: 'Bookings / Sessions',
       icon: Target,
       gradient: 'from-orange-500 to-orange-600'
     }
@@ -244,7 +372,7 @@ const Dashboard = ({ user }) => {
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">₹32001</p>
+                    <p className="text-2xl font-bold text-purple-600">₹{thisMonthRevenue.toLocaleString()}</p>
                     <p className="text-xs text-gray-500">This Month</p>
                   </div>
                 </div>
@@ -273,38 +401,38 @@ const Dashboard = ({ user }) => {
                       fill="none"
                       stroke="#8B5CF6"
                       strokeWidth="2"
-                      strokeDasharray="75, 100"
+                      strokeDasharray={`${Math.min(100, Math.max(0, stats.conversionRate || 0))}, 100`}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-gray-900">75%</span>
+                    <span className="text-3xl font-bold text-gray-900">{(stats.conversionRate || 0).toFixed(1)}%</span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">Overall Performance</p>
-                <p className="text-xs text-gray-500 mt-1">+5% from last month</p>
+                <p className="text-sm text-gray-600">Conversion Rate</p>
+                <p className="text-xs text-gray-500 mt-1">Bookings / Sessions</p>
               </div>
             </div>
 
             {/* Quick Stats */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Metrics</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Response Time</span>
-                  <span className="text-sm font-semibold text-green-600">{stats.responseTime}%</span>
+                  <span className="text-sm text-gray-600">Admins Active</span>
+                  <span className="text-sm font-semibold text-green-600">{stats.totalAdmins}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Customer Satisfaction</span>
-                  <span className="text-sm font-semibold text-blue-600">98.2%</span>
+                  <span className="text-sm text-gray-600">Bookings Total</span>
+                  <span className="text-sm font-semibold text-blue-600">{stats.bookingsCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Uptime</span>
-                  <span className="text-sm font-semibold text-purple-600">99.9%</span>
+                  <span className="text-sm text-gray-600">Clicks (24h)</span>
+                  <span className="text-sm font-semibold text-purple-600">{stats.recentClicks}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Active Users</span>
-                  <span className="text-sm font-semibold text-orange-600">1,247</span>
+                  <span className="text-sm text-gray-600">Items Active</span>
+                  <span className="text-sm font-semibold text-orange-600">{stats.totalItems}</span>
                 </div>
               </div>
             </div>
@@ -336,7 +464,7 @@ const Dashboard = ({ user }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {auditData.map((audit, index) => (
+                {recentActivity.map((audit, index) => (
                   <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {audit.action}
