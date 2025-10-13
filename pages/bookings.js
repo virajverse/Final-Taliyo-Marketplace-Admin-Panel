@@ -190,7 +190,7 @@ export default function Bookings() {
     const files = booking.files ? JSON.parse(booking.files) : [];
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center modal-backdrop p-4 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center modal-backdrop p-4 backdrop-blur-sm">
         <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 modal-content animate-bounce-in">
           <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
             <div className="flex justify-between items-center">

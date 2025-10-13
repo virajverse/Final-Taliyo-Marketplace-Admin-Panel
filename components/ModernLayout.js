@@ -32,7 +32,7 @@ const ModernLayout = ({ children, user }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 lg:flex">
+    <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <ModernSidebar 
         isOpen={sidebarOpen} 
@@ -40,7 +40,7 @@ const ModernLayout = ({ children, user }) => {
       />
 
       {/* Main Content */}
-      <div className="flex-1">
+      <div className="lg:ml-64">
         {/* Header */}
         <ModernHeader 
           user={user}

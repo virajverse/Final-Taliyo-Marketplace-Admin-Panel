@@ -639,7 +639,7 @@ const Products = ({ user }) => {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-200 p-6 sticky top-0 z-30">
+        <div className="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-200 p-6 sticky top-16 z-20">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
