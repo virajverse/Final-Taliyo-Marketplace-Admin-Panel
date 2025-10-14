@@ -12,13 +12,13 @@ export default async function handler(req, res) {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    const [itemsRes, clicksRes, adminsRes] = await Promise.all([
-      supabase.from('items').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    const [servicesRes, clicksRes, adminsRes] = await Promise.all([
+      supabase.from('services').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('order_clicks').select('*', { count: 'exact', head: true }),
       supabase.from('admins').select('*', { count: 'exact', head: true }).eq('is_active', true)
     ])
 
-    const itemsCount = itemsRes.count || 0
+    const itemsCount = servicesRes.count || 0
     const clicksCount = clicksRes.count || 0
     const adminsCount = adminsRes.count || 0
 
@@ -55,7 +55,8 @@ export default async function handler(req, res) {
       .from('order_clicks')
       .select(`
         *,
-        items (title, type)
+        items (title, type),
+        services (title)
       `)
       .order('created_at', { ascending: false })
       .limit(10)
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
     const recentActivity = (clicksRows || []).map(c => ({
       action: 'Order Click',
       user: c.user_ip || 'Visitor',
-      target: c.items?.title || 'Unknown',
+      target: c.services?.title || c.items?.title || 'Unknown',
       timestamp: new Date(c.created_at).toISOString(),
       status: 'Success'
     }))
@@ -89,26 +90,28 @@ export default async function handler(req, res) {
       growth: perfCounts[i]
     }))
 
-    const defs = [
-      { key: 'service', name: 'Services', color: '#8B5CF6' },
-      { key: 'product', name: 'Products', color: '#06B6D4' },
-      { key: 'package', name: 'Packages', color: '#10B981' }
-    ]
-    const catCounts = []
-    for (const d of defs) {
+    // Category distribution: top service categories by share
+    const { data: cats } = await supabase
+      .from('categories')
+      .select('id,name')
+      .eq('is_active', true)
+
+    const counts = []
+    for (const cat of (cats || [])) {
       const { count } = await supabase
-        .from('items')
+        .from('services')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
-        .eq('type', d.key)
-      catCounts.push(count || 0)
+        .eq('category_id', cat.id)
+      counts.push({ name: cat.name, count: count || 0 })
     }
-    const totalCat = catCounts.reduce((a, b) => a + b, 0)
-    const categoryData = defs.map((d, i) => ({
-      name: d.name,
-      value: totalCat > 0 ? Math.round((catCounts[i] / totalCat) * 100) : 0,
-      color: d.color
-    }))
+    counts.sort((a, b) => b.count - a.count)
+    const top = counts.slice(0, 3)
+    const totalTop = top.reduce((s, r) => s + r.count, 0)
+    const palette = ['#8B5CF6', '#06B6D4', '#10B981']
+    const categoryData = top.length
+      ? top.map((t, i) => ({ name: t.name, value: totalTop ? Math.round((t.count / totalTop) * 100) : 0, color: palette[i % palette.length] }))
+      : [{ name: 'Services', value: 100, color: '#8B5CF6' }]
 
     const conversionRate = clicksCount ? Number((((bookingsCount || 0) / clicksCount) * 100).toFixed(1)) : 0
 

@@ -62,7 +62,7 @@ const Tracking = ({ user }) => {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - parseInt(dateRange))
 
-      // Get click data with item details
+      // Get click data with item/service details
       const { data: clicks, error } = await supabase
         .from('order_clicks')
         .select(`
@@ -73,6 +73,10 @@ const Tracking = ({ user }) => {
             type,
             category,
             whatsapp_link
+          ),
+          services (
+            id,
+            title
           )
         `)
         .gte('created_at', startDate.toISOString())
@@ -90,22 +94,20 @@ const Tracking = ({ user }) => {
         new Date(click.created_at) >= today
       ).length || 0
 
-      // Find most clicked item
-      const itemClickCounts = {}
+      // Find most clicked item/service
+      const clickCounts = {}
       clicks?.forEach(click => {
-        if (click.items) {
-          const itemId = click.items.id
-          itemClickCounts[itemId] = (itemClickCounts[itemId] || 0) + 1
-        }
+        const id = click.services?.id || click.items?.id
+        if (id) clickCounts[id] = (clickCounts[id] || 0) + 1
       })
 
-      const topItemId = Object.keys(itemClickCounts).reduce((a, b) => 
-        itemClickCounts[a] > itemClickCounts[b] ? a : b, null
+      const topId = Object.keys(clickCounts).reduce((a, b) => 
+        (clickCounts[a] || 0) > (clickCounts[b] || 0) ? a : b, null
       )
 
       const topItem = clicks?.find(click => 
-        click.items?.id.toString() === topItemId
-      )?.items
+        (click.services?.id?.toString() === topId) || (click.items?.id?.toString() === topId)
+      )?.services || clicks?.find(click => click.items?.id?.toString() === topId)?.items
 
       setStats({
         totalClicks: clicks?.length || 0,
@@ -123,22 +125,26 @@ const Tracking = ({ user }) => {
     if (filter === 'all') {
       setFilteredData(clickData)
     } else {
-      setFilteredData(clickData.filter(click => 
-        click.items?.type === filter
-      ))
+      setFilteredData(clickData.filter(click => {
+        const t = click.items?.type || (click.services ? 'service' : null)
+        return t === filter
+      }))
     }
   }
 
   const exportData = () => {
     const csvContent = [
       ['Date', 'Time', 'Item Title', 'Type', 'Category'],
-      ...filteredData.map(click => [
-        new Date(click.created_at).toLocaleDateString(),
-        new Date(click.created_at).toLocaleTimeString(),
-        click.items?.title || 'Unknown',
-        click.items?.type || 'Unknown',
-        click.items?.category || 'Unknown'
-      ])
+      ...filteredData.map(click => {
+        const type = click.items?.type || (click.services ? 'service' : 'Unknown')
+        return [
+          new Date(click.created_at).toLocaleDateString(),
+          new Date(click.created_at).toLocaleTimeString(),
+          click.services?.title || click.items?.title || 'Unknown',
+          type,
+          click.items?.category || 'Unknown'
+        ]
+      })
     ].map(row => row.join(',')).join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv' })
@@ -305,19 +311,19 @@ const Tracking = ({ user }) => {
                       </td>
                       <td>
                         <div className="font-medium">
-                          {click.items?.title || 'Unknown Item'}
+                          {click.services?.title || click.items?.title || 'Unknown Item'}
                         </div>
                       </td>
                       <td>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          click.items?.type === 'service' 
-                            ? 'bg-blue-100 text-blue-800'
-                            : click.items?.type === 'product'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {click.items?.type || 'Unknown'}
-                        </span>
+                        {(() => {
+                          const type = click.items?.type || (click.services ? 'service' : 'Unknown')
+                          const cls = type === 'service' ? 'bg-blue-100 text-blue-800' : type === 'product' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
+                          return (
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${cls}`}>
+                              {type}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td>{click.items?.category || 'Uncategorized'}</td>
                       <td>

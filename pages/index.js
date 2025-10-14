@@ -101,16 +101,16 @@ const Dashboard = ({ user }) => {
         // Fallback to client-side queries below
       }
 
-      // Get total items count (with error handling)
+      // Get total services count (with error handling)
       let itemsCount = 0
       try {
         const { count } = await supabase
-          .from('items')
+          .from('services')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true)
         itemsCount = count || 0
       } catch (error) {
-        console.log('Items table not accessible:', error.message)
+        console.log('Services table not accessible:', error.message)
       }
 
       // Get total clicks count (with error handling)
@@ -193,6 +193,9 @@ const Dashboard = ({ user }) => {
           items (
             title,
             type
+          ),
+          services (
+            title
           )
         `)
         .order('created_at', { ascending: false })
@@ -201,7 +204,7 @@ const Dashboard = ({ user }) => {
       const activities = (clicks || []).map(c => ({
         action: 'Order Click',
         user: c.user_ip || 'Visitor',
-        target: c.items?.title || 'Unknown',
+        target: c.services?.title || c.items?.title || 'Unknown',
         timestamp: new Date(c.created_at).toLocaleString(),
         status: 'Success'
       }))
@@ -233,30 +236,31 @@ const Dashboard = ({ user }) => {
         console.log('Performance data error:', error.message)
       }
 
-      // Real category distribution from items.type
+      // Real category distribution from services by category
       let catData = []
       try {
-        const defs = [
-          { key: 'service', name: 'Services', color: '#8B5CF6' },
-          { key: 'product', name: 'Products', color: '#06B6D4' },
-          { key: 'package', name: 'Packages', color: '#10B981' }
-        ]
+        const { data: cats } = await supabase
+          .from('categories')
+          .select('id,name')
+          .eq('is_active', true)
+
         const counts = await Promise.all(
-          defs.map(async d => {
+          (cats || []).map(async c => {
             const { count } = await supabase
-              .from('items')
+              .from('services')
               .select('*', { count: 'exact', head: true })
               .eq('is_active', true)
-              .eq('type', d.key)
-            return count || 0
+              .eq('category_id', c.id)
+            return { name: c.name, count: count || 0 }
           })
         )
-        const total = counts.reduce((a, b) => a + b, 0)
-        catData = defs.map((d, i) => ({
-          name: d.name,
-          value: total > 0 ? Math.round((counts[i] / total) * 100) : 0,
-          color: d.color
-        }))
+        counts.sort((a, b) => b.count - a.count)
+        const top = counts.slice(0, 3)
+        const total = top.reduce((s, r) => s + r.count, 0)
+        const palette = ['#8B5CF6', '#06B6D4', '#10B981']
+        catData = top.length
+          ? top.map((t, i) => ({ name: t.name, value: total ? Math.round((t.count / total) * 100) : 0, color: palette[i % palette.length] }))
+          : [{ name: 'Services', value: 100, color: '#8B5CF6' }]
       } catch (error) {
         console.log('Category distribution error:', error.message)
       }
