@@ -58,33 +58,13 @@ const Tracking = ({ user }) => {
 
   const loadClickData = async () => {
     try {
-      // Calculate date range
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
+      // Fetch via secure admin API
+      const res = await fetch(`/api/admin/tracking?dateRange=${encodeURIComponent(String(dateRange))}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load tracking data')
 
-      // Get click data with item/service details
-      const { data: clicks, error } = await supabase
-        .from('order_clicks')
-        .select(`
-          *,
-          items (
-            id,
-            title,
-            type,
-            category,
-            whatsapp_link
-          ),
-          services (
-            id,
-            title
-          )
-        `)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setClickData(clicks || [])
+      const clicks = json?.data || []
+      setClickData(clicks)
 
       // Calculate stats
       const today = new Date()

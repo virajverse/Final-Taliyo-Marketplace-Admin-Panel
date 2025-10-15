@@ -53,6 +53,10 @@ const Products = ({ user }) => {
   const [validation, setValidation] = useState({})
   const [dragIndex, setDragIndex] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const [bulkFile, setBulkFile] = useState(null)
+  const [bulkUploading, setBulkUploading] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null)
+  const [bulkAssets, setBulkAssets] = useState(null)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -106,35 +110,23 @@ const Products = ({ user }) => {
 
   const loadProducts = async () => {
     try {
-      // Try to load from services table first, then items table
       let data = []
-      
+      // Prefer services
       try {
-        const { data: servicesData, error: servicesError } = await supabase
-          .from('services')
-          .select('*')
-          .order('created_at', { ascending: false })
-        
-        if (!servicesError && servicesData) {
-          data = servicesData.map(service => ({
-            ...service,
-            source: 'services'
-          }))
+        const res = await fetch('/api/admin/services')
+        const json = await res.json()
+        if (res.ok && Array.isArray(json?.data)) {
+          data = json.data.map(service => ({ ...service, source: 'services' }))
         }
-      } catch (error) {
-        console.log('Services table not accessible')
-      }
+      } catch {}
 
-      // If no services data, try items table
+      // Fallback to items if no services
       if (data.length === 0) {
         try {
-          const { data: itemsData, error: itemsError } = await supabase
-            .from('items')
-            .select('*')
-            .order('created_at', { ascending: false })
-          
-          if (!itemsError && itemsData) {
-            data = itemsData.map(item => ({
+          const res = await fetch('/api/admin/items')
+          const json = await res.json()
+          if (res.ok && Array.isArray(json?.data)) {
+            data = json.data.map(item => ({
               ...item,
               source: 'items',
               price_min: item.price,
@@ -142,9 +134,7 @@ const Products = ({ user }) => {
               is_active: item.is_active !== false
             }))
           }
-        } catch (error) {
-          console.log('Items table not accessible')
-        }
+        } catch {}
       }
 
       setProducts(data || [])
@@ -172,19 +162,11 @@ const Products = ({ user }) => {
     try {
       const newUrls = []
       for (const file of toUpload) {
-        const ext = file.name.split('.').pop()
-        const path = `products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-        const { data, error } = await supabase.storage
-          .from('service-images')
-          .upload(path, file)
-        if (error) {
-          console.error('Image upload failed:', error)
-          continue
-        }
-        const { data: pub } = supabase.storage
-          .from('service-images')
-          .getPublicUrl(data.path)
-        if (pub?.publicUrl) newUrls.push(pub.publicUrl)
+        const body = new FormData()
+        body.append('file', file)
+        const res = await fetch('/api/admin/storage/upload', { method: 'POST', body })
+        const json = await res.json()
+        if (res.ok && json?.url) newUrls.push(json.url)
       }
       if (newUrls.length) {
         setFormData(prev => ({
@@ -286,6 +268,42 @@ const Products = ({ user }) => {
     }
   }
 
+  const handleBulkFileChange = (e) => {
+    const file = e.target?.files?.[0] || null
+    setBulkFile(file)
+    setBulkResult(null)
+  }
+
+  const handleBulkAssetsChange = (e) => {
+    const file = e.target?.files?.[0] || null
+    setBulkAssets(file)
+  }
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      setError('Please choose a CSV/XLSX file')
+      return
+    }
+    setBulkUploading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const body = new FormData()
+      body.append('file', bulkFile)
+      if (bulkAssets) body.append('assets', bulkAssets)
+      const res = await fetch('/api/admin/services/bulk-upload', { method: 'POST', body })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Upload failed')
+      setBulkResult(json)
+      setSuccess(`Uploaded ${json.created} of ${json.totalRows}`)
+      await loadProducts()
+    } catch (err) {
+      setError('Bulk upload failed: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setBulkUploading(false)
+    }
+  }
+
   const validateForm = () => {
     const v = {}
     if (!formData.title?.trim()) v.title = 'Title is required'
@@ -310,10 +328,11 @@ const Products = ({ user }) => {
     }
 
     try {
-      const productData = {
+      const baseService = {
         title: formData.title,
         description: formData.description,
-        category: formData.category,
+        category_id: null,
+        subcategory_id: null,
         type: formData.type,
         price_min: formData.price_min ? parseFloat(formData.price_min) : null,
         price_max: formData.price_max ? parseFloat(formData.price_max) : null,
@@ -323,44 +342,49 @@ const Products = ({ user }) => {
         is_remote: formData.is_remote,
         duration_minutes: formData.duration_minutes ? parseInt(formData.duration_minutes) : null,
         is_active: true,
-        updated_at: new Date().toISOString()
+        images: Array.isArray(formData.images) ? formData.images : []
       }
-
-      // Handle images
-      if (formData.images.length > 0) {
-        productData.images = JSON.stringify(formData.images)
-      }
-
-      const tableName = editingProduct?.source === 'items' ? 'items' : 'services' // Use correct table when editing
 
       if (editingProduct) {
-        // Update existing product
-        const { error } = await supabase
-          .from(tableName)
-          .update(productData)
-          .eq('id', editingProduct.id)
-
-        if (error) throw error
-
-        setProducts(products.map(product => 
-          product.id === editingProduct.id 
-            ? { ...product, ...productData }
-            : product
-        ))
+        if (editingProduct.source === 'items') {
+          // Minimal update mapping for legacy items
+          const body = {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            type: formData.type,
+            price: formData.price_min ? parseFloat(formData.price_min) : null,
+            is_active: true
+          }
+          const res = await fetch(`/api/admin/items/${editingProduct.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          const json = await res.json()
+          if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
+          setProducts(products.map(p => (p.id === editingProduct.id ? { ...json.data, source: 'items', price_min: json.data.price, price_max: json.data.price } : p)))
+        } else {
+          const res = await fetch(`/api/admin/services/${editingProduct.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(baseService)
+          })
+          const json = await res.json()
+          if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
+          setProducts(products.map(p => (p.id === editingProduct.id ? { ...json.data, source: 'services' } : p)))
+        }
         setSuccess('Product updated successfully')
       } else {
-        // Create new product
-        productData.created_at = new Date().toISOString()
-        
-        const { data, error } = await supabase
-          .from(tableName)
-          .insert([productData])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        setProducts([{ ...data, source: 'services' }, ...products])
+        // Create new service
+        const res = await fetch('/api/admin/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...baseService, created_at: new Date().toISOString() })
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
+        setProducts([{ ...json.data, source: 'services' }, ...products])
         setSuccess('Product created successfully')
       }
 
@@ -419,15 +443,10 @@ const Products = ({ user }) => {
 
     try {
       const product = products.find(p => p.id === productId)
-      const tableName = product?.source === 'items' ? 'items' : 'services'
-
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq('id', productId)
-
-      if (error) throw error
-
+      const url = product?.source === 'items' ? `/api/admin/items/${productId}` : `/api/admin/services/${productId}`
+      const res = await fetch(url, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
       setProducts(products.filter(product => product.id !== productId))
       setSuccess('Product deleted successfully')
     } catch (error) {
@@ -439,23 +458,17 @@ const Products = ({ user }) => {
   const toggleProductStatus = async (productId, currentStatus) => {
     try {
       const product = products.find(p => p.id === productId)
-      const tableName = product?.source === 'items' ? 'items' : 'services'
-
-      const { error } = await supabase
-        .from(tableName)
-        .update({ 
-          is_active: !currentStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', productId)
-
-      if (error) throw error
-
-      setProducts(products.map(product => 
-        product.id === productId 
-          ? { ...product, is_active: !currentStatus }
-          : product
-      ))
+      const url = product?.source === 'items' ? `/api/admin/items/${productId}` : `/api/admin/services/${productId}`
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
+      setProducts(products.map(product => (
+        product.id === productId ? { ...json.data, source: product.source } : product
+      )))
       setSuccess(`Product ${!currentStatus ? 'activated' : 'deactivated'} successfully`)
     } catch (error) {
       console.error('Error updating product status:', error)
@@ -1026,6 +1039,8 @@ const Products = ({ user }) => {
                       accept=".csv,.xlsx,.xls"
                       className="hidden"
                       id="bulk-upload"
+                      onChange={handleBulkFileChange}
+                      disabled={bulkUploading}
                     />
                     <label
                       htmlFor="bulk-upload"
@@ -1039,6 +1054,36 @@ const Products = ({ user }) => {
                         CSV, XLSX files up to 10MB
                       </span>
                     </label>
+                    {bulkFile && (
+                      <div className="mt-3 text-sm text-gray-700">
+                        Selected: <span className="font-medium">{bulkFile.name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mt-4">
+                    <input
+                      type="file"
+                      accept=".zip"
+                      className="hidden"
+                      id="bulk-assets"
+                      onChange={handleBulkAssetsChange}
+                      disabled={bulkUploading}
+                    />
+                    <label
+                      htmlFor="bulk-assets"
+                      className="cursor-pointer inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50"
+                    >
+                      <ImageIcon size={16} className="mr-2 text-gray-600" /> Choose images.zip (optional)
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">
+                      If provided, the <code>images</code> column can list filenames (e.g. <code>photo1.jpg, banner.png</code>) and they will be uploaded from this ZIP to storage.
+                    </p>
+                    {bulkAssets && (
+                      <div className="mt-2 text-sm text-gray-700">
+                        Selected assets: <span className="font-medium">{bulkAssets.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1054,6 +1099,27 @@ const Products = ({ user }) => {
                   </ul>
                 </div>
 
+                {bulkResult && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                    <div><span className="font-semibold">Result:</span> Created {bulkResult.created} of {bulkResult.totalRows}</div>
+                    {Array.isArray(bulkResult.errors) && bulkResult.errors.length > 0 && (
+                      <div className="mt-2">
+                        <div className="font-semibold">Errors ({bulkResult.errors.length}):</div>
+                        <ul className="list-disc pl-5 mt-1 space-y-1 max-h-32 overflow-auto">
+                          {bulkResult.errors.slice(0, 10).map((e, idx) => (
+                            <li key={idx} className="text-red-700">
+                              Row {e.row}: {e.message}
+                            </li>
+                          ))}
+                          {bulkResult.errors.length > 10 && (
+                            <li className="text-gray-600">...and {bulkResult.errors.length - 10} more</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowBulkUpload(false)}
@@ -1061,8 +1127,12 @@ const Products = ({ user }) => {
                   >
                     Cancel
                   </button>
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Upload Products
+                  <button
+                    onClick={handleBulkUpload}
+                    disabled={bulkUploading || !bulkFile}
+                    className={`px-6 py-2 rounded-lg text-white transition-colors ${bulkUploading || !bulkFile ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  >
+                    {bulkUploading ? 'Uploading...' : 'Upload Products'}
                   </button>
                 </div>
               </div>

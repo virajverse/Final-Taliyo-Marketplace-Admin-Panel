@@ -66,13 +66,10 @@ const ManageItems = ({ user }) => {
 
   const loadItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setItems(data || [])
+      const res = await fetch('/api/admin/items')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load items')
+      setItems(json?.data || [])
     } catch (error) {
       console.error('Error loading items:', error)
       setError('Failed to load items')
@@ -116,32 +113,30 @@ const ManageItems = ({ user }) => {
 
       if (editingItem) {
         // Update existing item
-        const { error } = await supabase
-          .from('items')
-          .update(itemData)
-          .eq('id', editingItem.id)
+        const res = await fetch(`/api/admin/items/${editingItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itemData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-        if (error) throw error
-
-        setItems(items.map(item => 
-          item.id === editingItem.id 
-            ? { ...item, ...itemData }
-            : item
-        ))
+        setItems(items.map(item => (
+          item.id === editingItem.id ? json.data : item
+        )))
         setSuccess('Item updated successfully')
       } else {
         // Create new item
         itemData.created_at = new Date().toISOString()
-        
-        const { data, error } = await supabase
-          .from('items')
-          .insert([itemData])
-          .select()
-          .single()
+        const res = await fetch('/api/admin/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itemData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
-        if (error) throw error
-
-        setItems([data, ...items])
+        setItems([json.data, ...items])
         setSuccess('Item created successfully')
       }
 
@@ -181,12 +176,9 @@ const ManageItems = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', itemId)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/items/${itemId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setItems(items.filter(item => item.id !== itemId))
       setSuccess('Item deleted successfully')
@@ -198,21 +190,17 @@ const ManageItems = ({ user }) => {
 
   const toggleItemStatus = async (itemId, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('items')
-        .update({ 
-          is_active: !currentStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', itemId)
+      const res = await fetch(`/api/admin/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-      if (error) throw error
-
-      setItems(items.map(item => 
-        item.id === itemId 
-          ? { ...item, is_active: !currentStatus }
-          : item
-      ))
+      setItems(items.map(item => (
+        item.id === itemId ? json.data : item
+      )))
       setSuccess(`Item ${!currentStatus ? 'activated' : 'deactivated'} successfully`)
     } catch (error) {
       console.error('Error updating item status:', error)

@@ -1,1 +1,21 @@
-{"/_app":"pages/_app.js","/analytics":"pages/analytics.html","/_error":"pages/_error.js","/api/analytics/route":"pages/api/analytics/route.js","/_document":"pages/_document.js","/api/services/[id]/route":"pages/api/services/[id]/route.js","/api/bookings/route":"pages/api/bookings/route.js","/api/categories/route":"pages/api/categories/route.js","/api/services/route":"pages/api/services/route.js","/api/subcategories/route":"pages/api/subcategories/route.js","/api/admin/analytics":"pages/api/admin/analytics.js","/api/admin/metrics":"pages/api/admin/metrics.js","/auth/callback":"pages/auth/callback.html","/login":"pages/login.html","/":"pages/index.html","/manage-admins":"pages/manage-admins.html","/manage-categories":"pages/manage-categories.html","/manage-items":"pages/manage-items.html","/bookings":"pages/bookings.html","/settings":"pages/settings.html","/tracking":"pages/tracking.html","/products":"pages/products.html","/upload":"pages/upload.html","/404":"pages/404.html"}
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/products": "pages/products.js",
+  "/api/admin/services": "pages/api/admin/services.js",
+  "/api/admin/items": "pages/api/admin/items.js",
+  "/bookings": "pages/bookings.js",
+  "/api/admin/bookings": "pages/api/admin/bookings.js",
+  "/manage-categories": "pages/manage-categories.js",
+  "/api/admin/categories": "pages/api/admin/categories.js",
+  "/api/admin/subcategories": "pages/api/admin/subcategories.js",
+  "/analytics": "pages/analytics.js",
+  "/api/admin/analytics": "pages/api/admin/analytics.js",
+  "/api/admin/tracking": "pages/api/admin/tracking.js",
+  "/tracking": "pages/tracking.js",
+  "/upload": "pages/upload.js",
+  "/api/admin/admins": "pages/api/admin/admins.js",
+  "/manage-admins": "pages/manage-admins.js",
+  "/settings": "pages/settings.js"
+}

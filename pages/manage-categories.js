@@ -97,13 +97,10 @@ const ManageCategories = ({ user }) => {
 
   const loadCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      setCategories(data || [])
+      const res = await fetch('/api/admin/categories')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load categories')
+      setCategories(json?.data || [])
     } catch (error) {
       console.error('Error loading categories:', error)
       setError('Failed to load categories')
@@ -112,16 +109,10 @@ const ManageCategories = ({ user }) => {
 
   const loadSubcategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('subcategories')
-        .select(`
-          *,
-          categories (name)
-        `)
-        .order('name', { ascending: true })
-
-      if (error) throw error
-      setSubcategories(data || [])
+      const res = await fetch('/api/admin/subcategories')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load subcategories')
+      setSubcategories(json?.data || [])
     } catch (error) {
       console.error('Error loading subcategories:', error)
       setError('Failed to load subcategories')
@@ -153,32 +144,31 @@ const ManageCategories = ({ user }) => {
 
       if (editingCategory) {
         // Update existing category
-        const { error } = await supabase
-          .from('categories')
-          .update(categoryData)
-          .eq('id', editingCategory.id)
+        const res = await fetch(`/api/admin/categories/${editingCategory.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(categoryData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-        if (error) throw error
-
-        setCategories(categories.map(cat => 
-          cat.id === editingCategory.id 
-            ? { ...cat, ...categoryData }
-            : cat
-        ))
+        setCategories(categories.map(cat => (
+          cat.id === editingCategory.id ? json.data : cat
+        )))
         setSuccess('Category updated successfully')
       } else {
         // Create new category
         categoryData.created_at = new Date().toISOString()
-        
-        const { data, error } = await supabase
-          .from('categories')
-          .insert([categoryData])
-          .select()
-          .single()
 
-        if (error) throw error
+        const res = await fetch('/api/admin/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(categoryData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
-        setCategories([...categories, data])
+        setCategories([...categories, json.data])
         setSuccess('Category created successfully')
       }
 
@@ -212,26 +202,27 @@ const ManageCategories = ({ user }) => {
 
       if (editingSubcategory) {
         // Update existing subcategory
-        const { error } = await supabase
-          .from('subcategories')
-          .update(subcategoryData)
-          .eq('id', editingSubcategory.id)
+        const res = await fetch(`/api/admin/subcategories/${editingSubcategory.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subcategoryData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-        if (error) throw error
-
-        loadSubcategories() // Reload to get updated data with category name
+        await loadSubcategories()
         setSuccess('Subcategory updated successfully')
       } else {
         // Create new subcategory
-        const { data, error } = await supabase
-          .from('subcategories')
-          .insert([subcategoryData])
-          .select()
-          .single()
+        const res = await fetch('/api/admin/subcategories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subcategoryData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
-        if (error) throw error
-
-        loadSubcategories() // Reload to get updated data with category name
+        await loadSubcategories()
         setSuccess('Subcategory created successfully')
       }
 
@@ -277,12 +268,9 @@ const ManageCategories = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', categoryId)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/categories/${categoryId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setCategories(categories.filter(cat => cat.id !== categoryId))
       setSubcategories(subcategories.filter(sub => sub.category_id !== categoryId))
@@ -299,12 +287,9 @@ const ManageCategories = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('subcategories')
-        .delete()
-        .eq('id', subcategoryId)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/subcategories/${subcategoryId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setSubcategories(subcategories.filter(sub => sub.id !== subcategoryId))
       setSuccess('Subcategory deleted successfully')
@@ -316,21 +301,17 @@ const ManageCategories = ({ user }) => {
 
   const toggleCategoryStatus = async (categoryId, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('categories')
-        .update({ 
-          is_active: !currentStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', categoryId)
+      const res = await fetch(`/api/admin/categories/${categoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-      if (error) throw error
-
-      setCategories(categories.map(cat => 
-        cat.id === categoryId 
-          ? { ...cat, is_active: !currentStatus }
-          : cat
-      ))
+      setCategories(categories.map(cat => (
+        cat.id === categoryId ? json.data : cat
+      )))
       setSuccess(`Category ${!currentStatus ? 'activated' : 'deactivated'} successfully`)
     } catch (error) {
       console.error('Error updating category status:', error)
@@ -340,20 +321,17 @@ const ManageCategories = ({ user }) => {
 
   const toggleSubcategoryStatus = async (subcategoryId, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('subcategories')
-        .update({ 
-          is_active: !currentStatus,
-        })
-        .eq('id', subcategoryId)
+      const res = await fetch(`/api/admin/subcategories/${subcategoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-      if (error) throw error
-
-      setSubcategories(subcategories.map(sub => 
-        sub.id === subcategoryId 
-          ? { ...sub, is_active: !currentStatus }
-          : sub
-      ))
+      setSubcategories(subcategories.map(sub => (
+        sub.id === subcategoryId ? json.data : sub
+      )))
       setSuccess(`Subcategory ${!currentStatus ? 'activated' : 'deactivated'} successfully`)
     } catch (error) {
       console.error('Error updating subcategory status:', error)

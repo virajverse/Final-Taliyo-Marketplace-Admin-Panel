@@ -50,16 +50,10 @@ const ManageAdmins = ({ user }) => {
 
   const loadAdmins = async () => {
     try {
-      // Get admins from database
-      const { data: dbAdmins, error } = await supabase
-        .from('admins')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      // Use only database admins (no mock merge)
-      setAdmins(dbAdmins || [])
+      const res = await fetch('/api/admin/admins')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load admins')
+      setAdmins(json?.data || [])
     } catch (error) {
       console.error('Error loading admins:', error)
       setError('Failed to load admin list')
@@ -87,20 +81,16 @@ const ManageAdmins = ({ user }) => {
         return
       }
 
-      // Add to database
-      const { data, error } = await supabase
-        .from('admins')
-        .insert([{
-          email: newAdminEmail.toLowerCase(),
-          is_active: true
-        }])
-        .select()
-        .single()
-
-      if (error) throw error
+      const res = await fetch('/api/admin/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newAdminEmail.toLowerCase(), is_active: true })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
       // Update local state
-      setAdmins([...admins, data])
+      setAdmins([...admins, json.data])
       setNewAdminEmail('')
       setShowAddForm(false)
       setSuccess('Admin added successfully')
@@ -123,12 +113,9 @@ const ManageAdmins = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('admins')
-        .delete()
-        .eq('id', adminId)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/admins/${adminId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       // Update local state
       setAdmins(admins.filter(admin => admin.id !== adminId))
@@ -146,17 +133,18 @@ const ManageAdmins = ({ user }) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('admins')
-        .update({ is_active: !currentStatus })
-        .eq('id', adminId)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/admins/${adminId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
       // Update local state
       setAdmins(admins.map(admin => 
         admin.id === adminId 
-          ? { ...admin, is_active: !currentStatus }
+          ? json.data
           : admin
       ))
 

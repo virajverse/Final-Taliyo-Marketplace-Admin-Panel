@@ -1,9 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from './_auth'
+import { rateLimit } from './_rateLimit'
 
 function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
 function fmtDate(d){ return d.toLocaleDateString('en-US',{ month:'short', day:'numeric' }) }
 
 export default async function handler(req, res) {
+  const ok = requireAdmin(req, res)
+  if (!ok) return
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -12,6 +16,8 @@ export default async function handler(req, res) {
     }
 
     const days = Math.max(1, Math.min(365, parseInt(req.query.days || '30', 10)))
+
+    if (!rateLimit(req, res, 'admin_analytics_read', 120, 60 * 1000)) return
 
     const supabase = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false }

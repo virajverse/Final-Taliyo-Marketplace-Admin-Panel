@@ -50,23 +50,12 @@ export default function Bookings() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('bookings')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching bookings:', error);
-        return;
-      }
-
-      setBookings(data || []);
+      const params = new URLSearchParams();
+      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
+      const res = await fetch(`/api/admin/bookings?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load bookings');
+      setBookings(json?.data || []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -76,16 +65,13 @@ export default function Bookings() {
 
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ status: newStatus })
-        .eq('id', bookingId);
-
-      if (error) {
-        console.error('Error updating booking:', error);
-        alert('Failed to update booking status');
-        return;
-      }
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed');
 
       // Refresh bookings
       fetchBookings();
@@ -165,16 +151,13 @@ export default function Bookings() {
 
     const downloadFile = async (filePath) => {
       try {
-        const { data, error } = await supabase.storage
-          .from('booking-files')
-          .download(filePath);
-
-        if (error) {
-          console.error('Error downloading file:', error);
+        const res = await fetch(`/api/admin/storage/booking-file?path=${encodeURIComponent(filePath)}`);
+        if (!res.ok) {
+          console.error('Error downloading file');
           return;
         }
-
-        const url = URL.createObjectURL(data);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filePath.split('/').pop();

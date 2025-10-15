@@ -35,7 +35,10 @@ const ModernHeader = ({ user, onMenuClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/auth/logout', { method: 'POST' })
+    } catch {}
     localStorage.removeItem('admin_session')
     router.push('/login')
   }

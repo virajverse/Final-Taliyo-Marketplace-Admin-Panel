@@ -29,6 +29,16 @@ const Login = ({ user }) => {
     setError('')
 
     try {
+      // Call server auth to set secure admin cookie
+      const res = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Login failed')
+
+      // Maintain existing UI gating via localStorage session
       await simpleLogin(email, password)
       router.push('/')
     } catch (error) {
