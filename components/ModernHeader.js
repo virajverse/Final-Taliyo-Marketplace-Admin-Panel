@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import { 
   Menu, 
@@ -12,6 +12,7 @@ import {
   Moon,
   Globe
 } from 'lucide-react'
+import { supabase } from '../lib/supabaseClient'
 
 const ModernHeader = ({ user, onMenuClick }) => {
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -20,6 +21,27 @@ const ModernHeader = ({ user, onMenuClick }) => {
   const router = useRouter()
   const userMenuRef = useRef(null)
   const notificationRef = useRef(null)
+  const [theme, setTheme] = useState('light')
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
+
+  const { name, email, role, loginTime } = user || {}
+  const displayName = name || 'Admin User'
+  const displayEmail = email || 'admin@taliyo.com'
+  const displayRole = useMemo(() => {
+    if (!role) return 'Super Admin'
+    return role
+      .split('_')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  }, [role])
+  const formattedLoginTime = useMemo(() => {
+    if (!loginTime) return null
+    try {
+      return new Date(loginTime).toLocaleString()
+    } catch {
+      return null
+    }
+  }, [loginTime])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -35,6 +57,45 @@ const ModernHeader = ({ user, onMenuClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('theme') : null
+      const t = saved || 'light'
+      setTheme(t)
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('dark', t === 'dark')
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin_header_rt')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, (payload) => {
+        setNotifications(prev => ([{
+          id: payload.new?.id,
+          title: 'New booking received',
+          message: payload.new?.service_title || 'New booking',
+          time: new Date().toLocaleTimeString(),
+          unread: true
+        }, ...(prev || [])].slice(0, 20)))
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_clicks' }, () => {
+        setNotifications(prev => ([{
+          id: Date.now(),
+          title: 'New activity',
+          message: 'New session',
+          time: new Date().toLocaleTimeString(),
+          unread: true
+        }, ...(prev || [])].slice(0, 20)))
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
   const handleLogout = async () => {
     try {
       await fetch('/api/admin/auth/logout', { method: 'POST' })
@@ -43,11 +104,11 @@ const ModernHeader = ({ user, onMenuClick }) => {
     router.push('/login')
   }
 
-  const notifications = [
+  const [notifications, setNotifications] = useState([
     { id: 1, title: 'New booking received', message: 'Web Development service', time: '2 min ago', unread: true },
     { id: 2, title: 'Product uploaded', message: 'Mobile App Design added', time: '1 hour ago', unread: true },
     { id: 3, title: 'Analytics report', message: 'Weekly summary available', time: '3 hours ago', unread: false }
-  ]
+  ])
 
 
   const unreadCount = notifications.filter(n => n.unread).length
@@ -83,19 +144,32 @@ const ModernHeader = ({ user, onMenuClick }) => {
         {/* Right side */}
         <div className="flex items-center space-x-4">
           {/* Mobile search button */}
-          <button className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+          <button onClick={() => setShowMobileSearch(true)} className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
             <Search size={20} />
           </button>
 
           {/* Theme toggle */}
-          <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
-            <Sun size={20} />
+          <button onClick={() => {
+            const next = theme === 'dark' ? 'light' : 'dark'
+            setTheme(next)
+            if (typeof document !== 'undefined') {
+              document.documentElement.classList.toggle('dark', next === 'dark')
+            }
+            try { if (typeof window !== 'undefined') localStorage.setItem('theme', next) } catch {}
+          }} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+            {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
 
           {/* Notifications */}
           <div className="relative" ref={notificationRef}>
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
+              onClick={() => {
+                const open = !showNotifications
+                setShowNotifications(open)
+                if (open) {
+                  setNotifications(prev => (prev || []).map(n => ({ ...n, unread: false })))
+                }
+              }}
               className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
             >
               <Bell size={20} />
@@ -148,9 +222,9 @@ const ModernHeader = ({ user, onMenuClick }) => {
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                 <User size={16} className="text-white" />
               </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-900">Admin User</p>
-                <p className="text-xs text-gray-500">Super Admin</p>
+              <div className="hidden md:block text-left max-w-[160px]">
+                <p className="text-sm font-medium text-gray-900 break-words">{displayName}</p>
+                <p className="text-xs text-gray-500 break-words">{displayRole}</p>
               </div>
               <ChevronDown size={16} className="text-gray-500" />
             </button>
@@ -159,8 +233,11 @@ const ModernHeader = ({ user, onMenuClick }) => {
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                 <div className="px-4 py-3 border-b border-gray-200">
-                  <p className="font-medium text-gray-900">Admin User</p>
-                  <p className="text-sm text-gray-500">admin@taliyo.com</p>
+                  <p className="font-medium text-gray-900 break-words">{displayName}</p>
+                  <p className="text-sm text-gray-500 break-words">{displayEmail}</p>
+                  {formattedLoginTime && (
+                    <p className="mt-1 text-xs text-gray-400 break-words">Original login: {formattedLoginTime}</p>
+                  )}
                 </div>
                 
                 <div className="py-2">
@@ -170,14 +247,6 @@ const ModernHeader = ({ user, onMenuClick }) => {
                   >
                     <Settings size={16} className="mr-3" />
                     Settings
-                  </button>
-                  
-                  <button
-                    onClick={() => router.push('/profile')}
-                    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <User size={16} className="mr-3" />
-                    Profile
                   </button>
                   
                   <button className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
@@ -200,6 +269,22 @@ const ModernHeader = ({ user, onMenuClick }) => {
           </div>
         </div>
       </div>
+      {showMobileSearch && (
+        <div className="fixed inset-0 z-40 bg-white/95 backdrop-blur-sm p-4 md:hidden">
+          <div className="flex items-center space-x-2">
+            <Search size={20} className="text-gray-500" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products, orders, customers..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button onClick={() => setShowMobileSearch(false)} className="px-3 py-2 text-sm rounded-lg border border-gray-300">Close</button>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
