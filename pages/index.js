@@ -342,13 +342,13 @@ const Dashboard = ({ user }) => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm font-medium">{stat.title}</p>
-                  <p className="text-3xl font-bold mt-2">
+                  <div className="text-3xl font-bold mt-2">
                     {loading ? (
-                      <div className="h-8 w-16 bg-white/20 rounded animate-pulse"></div>
+                      <span className="inline-block h-8 w-16 bg-white/20 rounded animate-pulse"></span>
                     ) : (
-                      stat.value
+                      <span>{stat.value}</span>
                     )}
-                  </p>
+                  </div>
                   <div className="flex items-center mt-3">
                     <TrendingUp size={14} className="mr-1 text-white/90" />
                     <span className="text-sm text-white/90 font-medium">
