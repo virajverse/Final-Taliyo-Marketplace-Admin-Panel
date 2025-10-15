@@ -57,6 +57,7 @@ const Products = ({ user }) => {
   const [bulkUploading, setBulkUploading] = useState(false)
   const [bulkResult, setBulkResult] = useState(null)
   const [bulkAssets, setBulkAssets] = useState(null)
+  const [seeding, setSeeding] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -143,6 +144,23 @@ const Products = ({ user }) => {
       setError('Failed to load products')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSeedSampleProducts = async () => {
+    setError('')
+    setSuccess('')
+    try {
+      setSeeding(true)
+      const res = await fetch('/api/admin/services/seed-sample', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Seed failed')
+      setSuccess(`Created ${data.created} sample products`)
+      await loadProducts()
+    } catch (err) {
+      setError('Seeding failed: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setSeeding(false)
     }
   }
 
@@ -586,44 +604,50 @@ const Products = ({ user }) => {
 
   return (
     <ModernLayout user={user}>
-      <div className="space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Products & Services</h1>
-            <p className="text-gray-600 mt-1">
-              Manage your marketplace inventory with advanced tools
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowBulkUpload(true)}
-              className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <Upload size={16} className="mr-2" />
-              Bulk Upload
-            </button>
-            <button
-              onClick={handleSyncToServices}
-              disabled={syncing}
-              className={`flex items-center px-4 py-2 border border-gray-300 rounded-lg transition-colors ${syncing ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              <Download size={16} className="mr-2" />
-              {syncing ? 'Syncing…' : 'Sync to Database'}
-            </button>
-            <button
-              onClick={() => {
-                setEditingProduct(null)
-                resetForm(false)
-                setShowAddForm(true)
-              }}
-              className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
-            >
-              <Plus size={16} className="mr-2" />
-              Add Product
-            </button>
-          </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                Live Inventory Overview
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Products & Services</h1>
+              <p className="text-gray-600">
+                Manage your marketplace inventory, automate updates, and keep everything in sync.
+              </p>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+              <button
+                onClick={() => setShowBulkUpload(true)}
+                className="group flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all"
+              >
+                <Upload size={16} className="group-hover:text-blue-600" />
+                <span className="font-medium">Bulk Upload</span>
+              </button>
+              <button
+                onClick={handleSyncToServices}
+                disabled={syncing}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${syncing ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
+              >
+                <Download size={16} className={syncing ? 'text-gray-400 animate-bounce' : ''} />
+                <span className="font-medium">{syncing ? 'Syncing…' : 'Sync to Database'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingProduct(null)
+                  resetForm(false)
+                  setShowAddForm(true)
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
+              >
+                <Plus size={16} />
+                <span className="font-semibold">Add Product</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Alerts */}
@@ -652,8 +676,8 @@ const Products = ({ user }) => {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-200 p-6 sticky top-16 z-20">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
@@ -669,7 +693,7 @@ const Products = ({ user }) => {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-3">
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
@@ -723,7 +747,7 @@ const Products = ({ user }) => {
               </div>
               <button
                 type="button"
-                onClick={() => { setSearchQuery(''); setTypeFilter('all'); setStatusFilter('all'); }}
+                onClick={() => { setSearchQuery(''); setTypeFilter('all'); setStatusFilter('all'); setSortBy('newest'); }}
                 className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Reset
@@ -733,18 +757,21 @@ const Products = ({ user }) => {
         </div>
 
         {/* Products Grid/List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Products ({filteredProducts.length})
-              </h2>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Products ({filteredProducts.length})
+                </h2>
+                <p className="text-sm text-gray-500">Track what’s live, inactive, or needs attention.</p>
+              </div>
               {selectedProducts.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
+                  <span className="text-sm text-red-700 font-medium">
                     {selectedProducts.length} selected
                   </span>
-                  <button className="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-sm">
+                  <button className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">
                     Delete Selected
                   </button>
                 </div>
