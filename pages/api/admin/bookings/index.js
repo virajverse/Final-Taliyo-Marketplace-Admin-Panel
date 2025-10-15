@@ -36,6 +36,11 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'method_not_allowed' })
   } catch (e) {
+    console.error('bookings_failed', {
+      message: e?.message,
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    })
     return res.status(500).json({ error: 'bookings_failed', message: e?.message })
   }
 }
