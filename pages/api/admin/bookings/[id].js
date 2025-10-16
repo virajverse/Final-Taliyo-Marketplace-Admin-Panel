@@ -22,10 +22,47 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       if (!rateLimit(req, res, 'admin_bookings_write', 60, 60 * 1000)) return
-      const { status, notes } = req.body || {}
+      const { status, notes, timelineStep, timelineLabel, timelineNote } = req.body || {}
       const updates = {}
       if (status) updates.status = status
-      if (notes != null) updates.additional_notes = String(notes)
+
+      // Merge timeline into additional_notes JSON string
+      if (notes != null || timelineStep != null) {
+        // Fetch existing additional_notes to merge
+        const { data: existingRow } = await supabase
+          .from('bookings')
+          .select('additional_notes')
+          .eq('id', id)
+          .single()
+        let an = {}
+        try {
+          if (existingRow?.additional_notes) {
+            an = JSON.parse(existingRow.additional_notes)
+            if (an && typeof an !== 'object') an = {}
+          }
+        } catch {}
+        if (notes != null) {
+          an.notes = String(notes)
+        }
+        if (timelineStep != null) {
+          const entry = {
+            step: Number(timelineStep),
+            label: timelineLabel || String(timelineStep),
+            note: timelineNote ? String(timelineNote) : undefined,
+            at: new Date().toISOString()
+          }
+          if (!Array.isArray((an).timeline)) {
+            an.timeline = []
+          }
+          an.timeline.push(entry)
+        }
+        try {
+          updates.additional_notes = JSON.stringify(an)
+        } catch {
+          updates.additional_notes = String(notes ?? existingRow?.additional_notes ?? '')
+        }
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .update({ ...updates, updated_at: new Date().toISOString() })
