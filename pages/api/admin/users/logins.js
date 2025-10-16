@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '../_auth'
+import { rateLimit } from '../_rateLimit'
 
 export default async function handler(req, res) {
+  const ok = requireAdmin(req, res)
+  if (!ok) return
+  if (req.method !== 'GET') return res.status(405).json({ error: 'method_not_allowed' })
   try {
+    if (!rateLimit(req, res, 'admin_users_logins_read', 300, 60 * 1000)) return
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseUrl || !serviceKey) {

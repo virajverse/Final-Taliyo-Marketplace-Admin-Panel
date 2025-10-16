@@ -366,14 +366,14 @@ const ManageCategories = ({ user }) => {
     <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Manage Categories</h1>
             <p className="text-gray-600 mt-2">
               Organize your services with categories and subcategories.
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-2 sm:space-y-0 w-full md:w-auto">
             <button
               onClick={handleSyncCategories}
               disabled={syncing}
@@ -541,7 +541,7 @@ const ManageCategories = ({ user }) => {
 
                     {/* Subcategories */}
                     {isExpanded && categorySubcategories.length > 0 && (
-                      <div className="mt-4 ml-8 space-y-2">
+                      <div className="mt-4 md:ml-8 ml-3 space-y-2">
                         {categorySubcategories.map((subcategory) => (
                           <div key={subcategory.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex-1">

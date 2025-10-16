@@ -277,109 +277,172 @@ const ManageAdmins = ({ user }) => {
             </p>
           </div>
 
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="p-8 text-center">
-                <div className="loading-spinner mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading admins...</p>
-              </div>
-            ) : admins.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                    <th>Added</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {admins.map((admin, index) => (
-                    <tr key={admin.id || index}>
-                      <td>
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-                            <Mail size={14} className="text-primary-600" />
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="loading-spinner mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading admins...</p>
+            </div>
+          ) : admins.length > 0 ? (
+            <>
+              {/* Desktop/Tablet table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Status</th>
+                      <th>Type</th>
+                      <th>Added</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {admins.map((admin, index) => (
+                      <tr key={admin.id || index}>
+                        <td>
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
+                              <Mail size={14} className="text-primary-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{admin.email}</div>
+                              {admin.email === user?.email && (
+                                <div className="text-xs text-gray-500">You</div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-medium">{admin.email}</div>
-                            {admin.email === user?.email && (
-                              <div className="text-xs text-gray-500">You</div>
+                        </td>
+                        <td>
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            admin.is_active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {admin.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex items-center">
+                            <Shield size={14} className={`mr-1 ${
+                              admin.is_hardcoded ? 'text-orange-500' : 'text-blue-500'
+                            }`} />
+                            <span className={`text-xs ${
+                              admin.is_hardcoded ? 'text-orange-600' : 'text-blue-600'
+                            }`}>
+                              {admin.is_hardcoded ? 'System' : 'Added'}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="text-sm text-gray-500">
+                            {new Date(admin.created_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center space-x-2">
+                            {!admin.is_hardcoded && (
+                              <>
+                                <button
+                                  onClick={() => toggleAdminStatus(
+                                    admin.id,
+                                    admin.is_active,
+                                    admin.is_hardcoded
+                                  )}
+                                  className={`text-xs px-2 py-1 rounded ${
+                                    admin.is_active
+                                      ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                                      : 'bg-green-100 text-green-600 hover:bg-green-200'
+                                  }`}
+                                >
+                                  {admin.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+
+                                <button
+                                  onClick={() => removeAdmin(admin.id, admin.is_hardcoded)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+
+                            {admin.is_hardcoded && (
+                              <span className="text-xs text-gray-400">Protected</span>
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          admin.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {admin.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex items-center">
-                          <Shield size={14} className={`mr-1 ${
-                            admin.is_hardcoded ? 'text-orange-500' : 'text-blue-500'
-                          }`} />
-                          <span className={`text-xs ${
-                            admin.is_hardcoded ? 'text-orange-600' : 'text-blue-600'
-                          }`}>
-                            {admin.is_hardcoded ? 'System' : 'Added'}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="text-sm text-gray-500">
-                          {new Date(admin.created_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center space-x-2">
-                          {!admin.is_hardcoded && (
-                            <>
-                              <button
-                                onClick={() => toggleAdminStatus(
-                                  admin.id, 
-                                  admin.is_active, 
-                                  admin.is_hardcoded
-                                )}
-                                className={`text-xs px-2 py-1 rounded ${
-                                  admin.is_active
-                                    ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                                    : 'bg-green-100 text-green-600 hover:bg-green-200'
-                                }`}
-                              >
-                                {admin.is_active ? 'Deactivate' : 'Activate'}
-                              </button>
-                              
-                              <button
-                                onClick={() => removeAdmin(admin.id, admin.is_hardcoded)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                          
-                          {admin.is_hardcoded && (
-                            <span className="text-xs text-gray-400">Protected</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-8 text-center">
-                <Users size={48} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-500">No admins found</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y">
+                {admins.map((admin, index) => (
+                  <div key={admin.id || index} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="h-9 w-9 bg-primary-100 rounded-full flex items-center justify-center mr-3">
+                          <Mail size={14} className="text-primary-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">{admin.email}</div>
+                          {admin.email === user?.email && (
+                            <div className="text-xs text-gray-500">You</div>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        admin.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {admin.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center">
+                        <Shield size={12} className={`mr-1 ${admin.is_hardcoded ? 'text-orange-500' : 'text-blue-500'}`} />
+                        <span className={`${admin.is_hardcoded ? 'text-orange-600' : 'text-blue-600'}`}>
+                          {admin.is_hardcoded ? 'System' : 'Added'}
+                        </span>
+                      </div>
+                      <span>{new Date(admin.created_at).toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      {!admin.is_hardcoded ? (
+                        <>
+                          <button
+                            onClick={() => toggleAdminStatus(admin.id, admin.is_active, admin.is_hardcoded)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              admin.is_active ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                            }`}
+                          >
+                            {admin.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => removeAdmin(admin.id, admin.is_hardcoded)}
+                            className="text-red-600"
+                            title="Remove"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">Protected</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center">
+              <Users size={48} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No admins found</p>
+            </div>
+          )}
         </div>
 
         {/* Info Box */}

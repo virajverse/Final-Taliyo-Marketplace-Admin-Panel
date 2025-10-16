@@ -28,6 +28,19 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
+const safeParse = (v, fallback = []) => {
+  try {
+    if (Array.isArray(v)) return v
+    if (typeof v === 'string') {
+      const p = JSON.parse(v)
+      return Array.isArray(p) ? p : fallback
+    }
+    return fallback
+  } catch {
+    return fallback
+  }
+}
+
 const Products = ({ user }) => {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
@@ -443,7 +456,7 @@ const Products = ({ user }) => {
       price_min: product.price_min || '',
       price_max: product.price_max || '',
       price_type: product.price_type || 'fixed',
-      images: product.images ? (Array.isArray(product.images) ? product.images : JSON.parse(product.images)) : [],
+      images: safeParse(product.images, []),
       provider_name: product.provider_name || '',
       location: product.location || '',
       is_remote: product.is_remote || false,
@@ -498,9 +511,9 @@ const Products = ({ user }) => {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
       {/* Product Image */}
       <div className="relative h-48 bg-gradient-to-br from-blue-50 to-purple-50">
-        {product.images && product.images.length > 0 ? (
+        {safeParse(product.images, []).length > 0 ? (
           <img 
-            src={Array.isArray(product.images) ? product.images[0] : JSON.parse(product.images)[0]} 
+            src={safeParse(product.images, [])[0]} 
             alt={product.title}
             className="w-full h-full object-cover"
           />
@@ -547,10 +560,10 @@ const Products = ({ user }) => {
             </button>
           </div>
         </div>
-        {(Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)) > 1 && (
+        {safeParse(product.images, []).length > 1 && (
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
             <ImageIcon size={12} />
-            <span>{Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)}</span>
+            <span>{safeParse(product.images, []).length}</span>
           </div>
         )}
       </div>
@@ -697,7 +710,7 @@ const Products = ({ user }) => {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Types</option>
                 <option value="service">Services</option>
@@ -708,7 +721,7 @@ const Products = ({ user }) => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -719,7 +732,7 @@ const Products = ({ user }) => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="newest">Newest</option>
                 <option value="price_low">Price: Low → High</option>
@@ -787,7 +800,7 @@ const Products = ({ user }) => {
               </div>
             ) : filteredProducts.length > 0 ? (
               viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                   {filteredProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
@@ -798,9 +811,9 @@ const Products = ({ user }) => {
                     <div key={product.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="h-12 w-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-                          {(Array.isArray(product.images) ? product.images.length : (product.images ? JSON.parse(product.images).length : 0)) > 0 ? (
+                          {safeParse(product.images, []).length > 0 ? (
                             <img
-                              src={Array.isArray(product.images) ? product.images[0] : JSON.parse(product.images)[0]}
+                              src={safeParse(product.images, [])[0]}
                               alt={product.title}
                               className="h-full w-full object-cover"
                             />

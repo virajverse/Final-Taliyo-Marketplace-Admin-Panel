@@ -308,102 +308,170 @@ const ManageItems = ({ user }) => {
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="p-8 text-center">
-                <div className="loading-spinner mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading items...</p>
-              </div>
-            ) : filteredItems.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Type</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <div>
-                          <div className="font-medium">{item.title}</div>
-                          <div className="text-sm text-gray-500">
-                            {item.description?.slice(0, 50)}
-                            {item.description?.length > 50 && '...'}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          item.type === 'service' 
-                            ? 'bg-blue-100 text-blue-800'
-                            : item.type === 'product'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {item.type}
-                        </span>
-                      </td>
-                      <td>{item.category || 'Uncategorized'}</td>
-                      <td>
-                        {item.price ? `₹${item.price}` : 'Not set'}
-                      </td>
-                      <td>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          item.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {item.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </td>
-                      <td>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => toggleItemStatus(item.id, item.is_active)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title={item.is_active ? 'Deactivate' : 'Activate'}
-                          >
-                            {item.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                          
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="text-green-600 hover:text-green-800"
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="loading-spinner mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading items...</p>
+            </div>
+          ) : filteredItems.length > 0 ? (
+            <>
+              {/* Desktop/Tablet table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Type</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-8 text-center">
-                <Package size={48} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-500">No items found</p>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <div>
+                            <div className="font-medium">{item.title}</div>
+                            <div className="text-sm text-gray-500">
+                              {item.description?.slice(0, 50)}
+                              {item.description?.length > 50 && '...'}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            item.type === 'service' 
+                              ? 'bg-blue-100 text-blue-800'
+                              : item.type === 'product'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td>{item.category || 'Uncategorized'}</td>
+                        <td>
+                          {item.price ? `₹${item.price}` : 'Not set'}
+                        </td>
+                        <td>
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            item.is_active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {item.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => toggleItemStatus(item.id, item.is_active)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title={item.is_active ? 'Deactivate' : 'Activate'}
+                            >
+                              {item.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                            
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y">
+                {filteredItems.map((item) => (
+                  <div key={item.id} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-gray-900 truncate">{item.title}</h3>
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                            item.type === 'service' 
+                              ? 'bg-blue-100 text-blue-800'
+                              : item.type === 'product'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {item.type}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{item.description}</p>
+                        )}
+                        <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                          <span>{item.category || 'Uncategorized'}</span>
+                          <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <span className={`ml-3 px-2 py-1 text-xs font-medium rounded-full flex-shrink-0 ${
+                        item.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {item.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {item.price ? `₹${item.price}` : 'Price not set'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleItemStatus(item.id, item.is_active)}
+                          className="text-blue-600"
+                          title={item.is_active ? 'Deactivate' : 'Activate'}
+                        >
+                          {item.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="text-green-600"
+                          title="Edit"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-600"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center">
+              <Package size={48} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No items found</p>
+            </div>
+          )}
         </div>
 
         {/* Add/Edit Form Modal */}

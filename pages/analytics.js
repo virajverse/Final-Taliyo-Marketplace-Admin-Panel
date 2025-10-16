@@ -89,7 +89,7 @@ const Analytics = ({ user }) => {
     <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
             <p className="text-gray-600 mt-2">
@@ -99,7 +99,7 @@ const Analytics = ({ user }) => {
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="form-input w-auto"
+            className="form-input w-full md:w-auto"
           >
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>

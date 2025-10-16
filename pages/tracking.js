@@ -144,7 +144,7 @@ const Tracking = ({ user }) => {
     <ModernLayout user={user}>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Click Tracking</h1>
             <p className="text-gray-600 mt-2">
@@ -153,7 +153,7 @@ const Tracking = ({ user }) => {
           </div>
           <button
             onClick={exportData}
-            className="btn-secondary flex items-center"
+            className="btn-secondary flex items-center w-full md:w-auto justify-center"
           >
             <Download size={16} className="mr-2" />
             Export CSV
@@ -228,7 +228,7 @@ const Tracking = ({ user }) => {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="form-input w-auto"
+              className="form-input w-full md:w-auto"
             >
               <option value="all">All Types</option>
               <option value="service">Services</option>
@@ -241,7 +241,7 @@ const Tracking = ({ user }) => {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="form-input w-auto"
+                className="form-input w-full md:w-auto"
               >
                 <option value="1">Last 24 hours</option>
                 <option value="7">Last 7 days</option>
