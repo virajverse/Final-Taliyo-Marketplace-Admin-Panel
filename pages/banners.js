@@ -224,6 +224,20 @@ export default function Banners() {
                 <select value={form.active ? 'true' : 'false'} onChange={(e)=>setForm({ ...form, active: e.target.value === 'true' })} className="mt-1 w-full border rounded-lg px-3 py-2">
                   <option value="true">Yes</option>
                   <option value="false">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Sort Order (optional)</label>
+                <input type="number" value={form.sort_order ?? ''} onChange={(e)=>setForm({ ...form, sort_order: e.target.value ? Number(e.target.value) : undefined })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Auto" />
+              </div>
+            </div>
+            <div className="text-right">
+              <button onClick={() => onSave(form)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
