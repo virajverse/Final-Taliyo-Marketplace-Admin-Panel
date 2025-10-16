@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import ModernLayout from '../components/ModernLayout'
 import { 
   Users, 
@@ -170,13 +171,19 @@ const ManageAdmins = ({ user }) => {
               Control who has access to the admin panel.
             </p>
           </div>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="btn-primary flex items-center"
-          >
-            <Plus size={16} className="mr-2" />
-            Add Admin
-          </button>
+          <div className="flex items-center gap-3">
+            <Link href="/users/logins" className="btn-secondary flex items-center">
+              <Users size={16} className="mr-2" />
+              User Logins
+            </Link>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="btn-primary flex items-center"
+            >
+              <Plus size={16} className="mr-2" />
+              Add Admin
+            </button>
+          </div>
         </div>
 
         {/* Alerts */}
