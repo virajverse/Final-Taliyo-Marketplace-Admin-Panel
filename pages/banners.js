@@ -15,6 +15,7 @@ export default function Banners() {
   const [editing, setEditing] = useState(null); // banner object or null
   const [limit, setLimit] = useState(3);
   const [savingLimit, setSavingLimit] = useState(false);
+  const [dragIndex, setDragIndex] = useState(null);
 
   useEffect(() => {
     const session = checkSession();
@@ -31,7 +32,7 @@ export default function Banners() {
       const [{ data: bannersData }, { data: setting }] = await Promise.all([
         supabase
           .from('banners')
-          .select('id,image_url,video_url,cta_text,cta_url,cta_align,active,sort_order,created_at,updated_at')
+          .select('id,image_url,video_url,cta_text,cta_url,cta_align,start_at,end_at,target,duration_ms,overlay_opacity,alt_text,aria_label,active,sort_order,created_at,updated_at')
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true }),
         supabase
@@ -51,6 +52,33 @@ export default function Banners() {
     }
   };
 
+  // Drag & Drop reorder with auto-save
+  const saveOrder = async (arr) => {
+    try {
+      await Promise.all(
+        arr.map((b, i) => supabase.from('banners').update({ sort_order: i }).eq('id', b.id))
+      );
+      setBanners(arr);
+    } catch (e) {
+      console.error(e);
+      alert('Save order failed');
+    }
+  };
+
+  const handleDragStart = (idx) => setDragIndex(idx);
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+  };
+  const handleDrop = async (e, idx) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === idx) return setDragIndex(null);
+    const arr = [...banners];
+    const [moved] = arr.splice(dragIndex, 1);
+    arr.splice(idx, 0, moved);
+    setDragIndex(null);
+    await saveOrder(arr);
+  };
+
   const upsertBanner = async (banner) => {
     try {
       const clean = {
@@ -59,6 +87,15 @@ export default function Banners() {
         cta_text: banner.cta_text?.trim() || null,
         cta_url: banner.cta_url?.trim() || null,
         cta_align: banner.cta_align || 'center',
+        target: banner.target || 'all',
+        duration_ms: banner.duration_ms ? Number(banner.duration_ms) : null,
+        overlay_opacity: banner.overlay_opacity !== undefined && banner.overlay_opacity !== ''
+          ? Math.max(0, Math.min(0.6, Number(banner.overlay_opacity)))
+          : null,
+        alt_text: banner.alt_text?.trim() || null,
+        aria_label: banner.aria_label?.trim() || null,
+        start_at: banner.start_at ? new Date(banner.start_at).toISOString() : null,
+        end_at: banner.end_at ? new Date(banner.end_at).toISOString() : null,
         active: banner.active ?? true,
         sort_order: banner.sort_order ?? (banners.length ? Math.max(...banners.map(b => b.sort_order || 0)) + 1 : 0),
       };
@@ -136,6 +173,13 @@ export default function Banners() {
       cta_text: value?.cta_text || '',
       cta_url: value?.cta_url || '',
       cta_align: value?.cta_align || 'center',
+      target: value?.target || 'all',
+      duration_ms: value?.duration_ms ?? '',
+      overlay_opacity: value?.overlay_opacity ?? '',
+      alt_text: value?.alt_text || '',
+      aria_label: value?.aria_label || '',
+      start_at: value?.start_at ? new Date(value.start_at).toISOString().slice(0,16) : '',
+      end_at: value?.end_at ? new Date(value.end_at).toISOString().slice(0,16) : '',
       active: value?.active ?? true,
       sort_order: value?.sort_order ?? undefined,
     });
@@ -210,6 +254,44 @@ export default function Banners() {
                 <input value={form.cta_url} onChange={(e)=>setForm({ ...form, cta_url: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://wa.me/+91... or /path" />
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Start At (optional)</label>
+                <input type="datetime-local" value={form.start_at} onChange={(e)=>setForm({ ...form, start_at: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">End At (optional)</label>
+                <input type="datetime-local" value={form.end_at} onChange={(e)=>setForm({ ...form, end_at: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Target</label>
+                <select value={form.target} onChange={(e)=>setForm({ ...form, target: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2">
+                  <option value="all">All</option>
+                  <option value="mobile">Mobile</option>
+                  <option value="desktop">Desktop</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Duration (ms)</label>
+                <input type="number" min={1000} step={100} value={form.duration_ms} onChange={(e)=>setForm({ ...form, duration_ms: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="4000" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Overlay Opacity (0–0.6)</label>
+                <input type="number" min={0} max={0.6} step={0.05} value={form.overlay_opacity} onChange={(e)=>setForm({ ...form, overlay_opacity: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="0.1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Alt Text (for image)</label>
+                <input value={form.alt_text} onChange={(e)=>setForm({ ...form, alt_text: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Banner description" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">CTA Aria Label</label>
+                <input value={form.aria_label} onChange={(e)=>setForm({ ...form, aria_label: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Open WhatsApp" />
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-700">CTA Align</label>
@@ -281,7 +363,14 @@ export default function Banners() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {banners.map((b, idx) => (
-                    <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr
+                      key={b.id}
+                      className={`transition-colors ${dragIndex === idx ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
+                      draggable
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={(e) => handleDrop(e, idx)}
+                    >
                       <td className="px-6 py-3 whitespace-nowrap">
                         {b.video_url ? (
                           <video src={b.video_url} className="w-40 h-16 rounded object-cover" muted playsInline />
@@ -294,6 +383,12 @@ export default function Banners() {
                       <td className="px-6 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{b.cta_text || '-'}</div>
                         <div className="text-xs text-gray-500 truncate max-w-[240px]">{b.cta_url || '-'}</div>
+                        {(b.start_at || b.end_at) && (
+                          <div className="text-[11px] text-gray-500 mt-1">
+                            {b.start_at ? `From: ${new Date(b.start_at).toLocaleString()}` : ''}
+                            {b.end_at ? `  To: ${new Date(b.end_at).toLocaleString()}` : ''}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm">{b.cta_align || 'center'}</td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm">

@@ -67,6 +67,12 @@ const ModernSidebar = ({ isOpen, onClose }) => {
       description: 'User Interactions'
     },
     { 
+      name: 'Banner Analytics', 
+      href: '/banner-analytics', 
+      icon: TrendingUp,
+      description: 'Banners Impressions & CTR'
+    },
+    { 
       name: 'Admins', 
       href: '/manage-admins', 
       icon: Users,
@@ -83,7 +89,8 @@ const ModernSidebar = ({ isOpen, onClose }) => {
   const quickActions = [
     { name: 'Add Product', icon: Plus, action: () => router.push('/products?add=true') },
     { name: 'View Orders', icon: ShoppingBag, action: () => router.push('/bookings') },
-    { name: 'Analytics', icon: Eye, action: () => router.push('/analytics') }
+    { name: 'Analytics', icon: Eye, action: () => router.push('/analytics') },
+    { name: 'Banner Analytics', icon: BarChart3, action: () => router.push('/banner-analytics') }
   ]
 
   return (
