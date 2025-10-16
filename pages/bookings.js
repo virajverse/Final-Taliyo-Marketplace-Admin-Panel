@@ -15,6 +15,7 @@ export default function Bookings() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const modalOpen = !!selectedBooking;
 
   useEffect(() => {
     // Check authentication via shared session
@@ -32,20 +33,21 @@ export default function Bookings() {
     const channel = supabase
       .channel('bookings_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        fetchBookings();
+        if (!modalOpen) fetchBookings();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [statusFilter]);
+  }, [statusFilter, modalOpen]);
 
   useEffect(() => {
-    // Polling fallback every 10s
+    // Polling fallback every 10s (paused while modal is open)
+    if (modalOpen) return;
     const id = setInterval(() => fetchBookings(), 10000);
     return () => clearInterval(id);
-  }, [statusFilter]);
+  }, [statusFilter, modalOpen]);
 
   const fetchBookings = async () => {
     try {
@@ -170,7 +172,7 @@ export default function Bookings() {
       }
     };
 
-    const files = booking.files ? JSON.parse(booking.files) : [];
+    const files = safeParse(booking.files, []);
 
     return (
       <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center modal-backdrop p-4 backdrop-blur-sm">
@@ -218,11 +220,11 @@ export default function Bookings() {
             </div>
 
             {/* Cart Items (if this is a cart booking) */}
-            {booking.cart_items && (
+            {safeParse(booking.cart_items, []).length > 0 && (
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-900 mb-2">Cart Items</h3>
                 <div className="space-y-2">
-                  {JSON.parse(booking.cart_items).map((item, index) => (
+                  {safeParse(booking.cart_items, []).map((item, index) => (
                     <div key={index} className="bg-white p-3 rounded border">
                       <div className="flex justify-between items-start">
                         <div>
@@ -491,9 +493,9 @@ export default function Bookings() {
                         <div className="text-sm text-gray-500">
                           {booking.service_price}
                         </div>
-                        {booking.cart_items && (
+                        {safeParse(booking.cart_items, []).length > 0 && (
                           <div className="text-xs text-blue-600 mt-1">
-                            Cart Order ({JSON.parse(booking.cart_items).length} items)
+                            Cart Order ({safeParse(booking.cart_items, []).length} items)
                           </div>
                         )}
                       </td>
