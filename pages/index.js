@@ -456,7 +456,8 @@ const Dashboard = ({ user }) => {
               </button>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop/Tablets: wide table */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="min-w-full">
               <thead className="bg-gray-50/50">
                 <tr>
@@ -497,6 +498,34 @@ const Dashboard = ({ user }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+          {/* Mobile: cards */}
+          <div className="md:hidden">
+            <div className="divide-y divide-gray-100">
+              {recentActivity.map((audit, index) => (
+                <div key={index} className="p-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-gray-900">{audit.action}</div>
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      audit.status === 'Success'
+                        ? 'bg-green-100 text-green-800'
+                        : audit.status === 'Warning'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {audit.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {audit.target}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{audit.user}</span>
+                    <span>{audit.timestamp}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

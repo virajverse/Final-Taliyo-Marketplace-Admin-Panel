@@ -349,69 +349,122 @@ export default function Banners() {
           ) : banners.length === 0 ? (
             <div className="p-8 text-center text-gray-600">No banners yet</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50/50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Preview</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">CTA</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Align</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Active</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {banners.map((b, idx) => (
-                    <tr
-                      key={b.id}
-                      className={`transition-colors ${dragIndex === idx ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
-                      draggable
-                      onDragStart={() => handleDragStart(idx)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDrop={(e) => handleDrop(e, idx)}
-                    >
-                      <td className="px-6 py-3 whitespace-nowrap">
+            <>
+              {/* Desktop/Tablet table */}
+              <div className="overflow-x-auto hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50/50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Preview</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">CTA</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Align</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Active</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {banners.map((b, idx) => (
+                      <tr
+                        key={b.id}
+                        className={`transition-colors ${dragIndex === idx ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
+                        draggable
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragOver={(e) => handleDragOver(e, idx)}
+                        onDrop={(e) => handleDrop(e, idx)}
+                      >
+                        <td className="px-6 py-3 whitespace-nowrap">
+                          {b.video_url ? (
+                            <video src={b.video_url} className="w-40 h-16 rounded object-cover" muted playsInline />
+                          ) : b.image_url ? (
+                            <img src={b.image_url} className="w-40 h-16 object-cover rounded" alt="banner" />
+                          ) : (
+                            <span className="text-xs text-gray-400">No media</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{b.cta_text || '-'}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[240px]">{b.cta_url || '-'}</div>
+                          {(b.start_at || b.end_at) && (
+                            <div className="text-[11px] text-gray-500 mt-1">
+                              {b.start_at ? `From: ${new Date(b.start_at).toLocaleString()}` : ''}
+                              {b.end_at ? `  To: ${new Date(b.end_at).toLocaleString()}` : ''}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm">{b.cta_align || 'center'}</td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm">
+                          <button onClick={() => toggleActive(b)} className={`px-3 py-1 rounded ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.active ? 'Active' : 'Inactive'}</button>
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm">
+                          <div className="flex items-center gap-2">
+                            <button disabled={idx===0} onClick={() => move(idx, -1)} className="px-2 py-1 border rounded disabled:opacity-50">↑</button>
+                            <button disabled={idx===banners.length-1} onClick={() => move(idx, 1)} className="px-2 py-1 border rounded disabled:opacity-50">↓</button>
+                            <span className="text-xs text-gray-500 ml-2">{b.sort_order ?? idx}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setEditing(b)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded">Edit</button>
+                            <button onClick={() => deleteBanner(b.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y">
+                {banners.map((b, idx) => (
+                  <div
+                    key={b.id}
+                    className="p-4 flex flex-col gap-3 active:bg-gray-50"
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-16 w-28 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                         {b.video_url ? (
-                          <video src={b.video_url} className="w-40 h-16 rounded object-cover" muted playsInline />
+                          <video src={b.video_url} className="h-full w-full object-cover" muted playsInline />
                         ) : b.image_url ? (
-                          <img src={b.image_url} className="w-40 h-16 object-cover rounded" alt="banner" />
+                          <img src={b.image_url} className="h-full w-full object-cover" alt="banner" />
                         ) : (
-                          <span className="text-xs text-gray-400">No media</span>
+                          <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No media</div>
                         )}
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{b.cta_text || '-'}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[240px]">{b.cta_url || '-'}</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">{b.cta_text || '-'}</div>
+                        <div className="text-xs text-gray-500 truncate">{b.cta_url || '-'}</div>
                         {(b.start_at || b.end_at) && (
-                          <div className="text-[11px] text-gray-500 mt-1">
-                            {b.start_at ? `From: ${new Date(b.start_at).toLocaleString()}` : ''}
-                            {b.end_at ? `  To: ${new Date(b.end_at).toLocaleString()}` : ''}
+                          <div className="text-[11px] text-gray-500 mt-1 truncate">
+                            {b.start_at ? `From: ${new Date(b.start_at).toLocaleDateString()} ` : ''}
+                            {b.end_at ? `To: ${new Date(b.end_at).toLocaleDateString()}` : ''}
                           </div>
                         )}
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm">{b.cta_align || 'center'}</td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm">
-                        <button onClick={() => toggleActive(b)} className={`px-3 py-1 rounded ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.active ? 'Active' : 'Inactive'}</button>
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-2">
-                          <button disabled={idx===0} onClick={() => move(idx, -1)} className="px-2 py-1 border rounded disabled:opacity-50">↑</button>
-                          <button disabled={idx===banners.length-1} onClick={() => move(idx, 1)} className="px-2 py-1 border rounded disabled:opacity-50">↓</button>
-                          <span className="text-xs text-gray-500 ml-2">{b.sort_order ?? idx}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => setEditing(b)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded">Edit</button>
-                          <button onClick={() => deleteBanner(b.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded">Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Align: <span className="font-medium">{b.cta_align || 'center'}</span></span>
+                      <button onClick={() => toggleActive(b)} className={`px-2 py-1 rounded ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.active ? 'Active' : 'Inactive'}</button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <button disabled={idx===0} onClick={() => move(idx, -1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Up</button>
+                        <button disabled={idx===banners.length-1} onClick={() => move(idx, 1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Down</button>
+                        <span className="text-xs text-gray-500">#{b.sort_order ?? idx}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditing(b)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
+                        <button onClick={() => deleteBanner(b.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm">Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

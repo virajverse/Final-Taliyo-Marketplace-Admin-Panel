@@ -259,7 +259,8 @@ const Tracking = ({ user }) => {
             <p className="text-sm text-gray-600">Showing {filteredData.length} clicks</p>
           </div>
           
-          <div className="overflow-x-auto">
+          {/* Desktop/Tablet table */}
+          <div className="overflow-x-auto hidden md:block">
             {loading ? (
               <div className="p-8 text-center">
                 <div className="loading-spinner mx-auto mb-4"></div>
@@ -322,6 +323,59 @@ const Tracking = ({ user }) => {
                   ))}
                 </tbody>
               </table>
+            ) : (
+              <div className="p-8 text-center">
+                <Eye size={48} className="mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">No click data found</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Click tracking will appear here once users start clicking on items
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="loading-spinner mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading click data...</p>
+              </div>
+            ) : filteredData.length > 0 ? (
+              <div className="divide-y">
+                {filteredData.map((click, index) => {
+                  const type = click.items?.type || (click.services ? 'service' : 'Unknown')
+                  const cls = type === 'service' ? 'bg-blue-100 text-blue-800' : type === 'product' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
+                  return (
+                    <div key={index} className="p-4 flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="font-medium truncate">
+                          {click.services?.title || click.items?.title || 'Unknown Item'}
+                        </div>
+                        <div className="text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(click.created_at).toLocaleDateString()} {new Date(click.created_at).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${cls}`}>{type}</span>
+                        <span className="text-xs text-gray-600">{click.items?.category || 'Uncategorized'}</span>
+                      </div>
+                      {click.items?.whatsapp_link && (
+                        <div>
+                          <a
+                            href={click.items.whatsapp_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-600 hover:text-green-800 text-sm"
+                          >
+                            View WhatsApp
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
               <div className="p-8 text-center">
                 <Eye size={48} className="mx-auto text-gray-300 mb-3" />

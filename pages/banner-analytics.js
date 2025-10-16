@@ -273,7 +273,6 @@ export default function BannerAnalytics() {
           )}
         </div>
 
-        {/* Per-banner table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-100 text-sm font-medium text-gray-800">Banners</div>
           {loading ? (
@@ -281,43 +280,74 @@ export default function BannerAnalytics() {
           ) : finalList.length === 0 ? (
             <div className="p-8 text-gray-500">No banners</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Preview</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">CTA</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Impressions</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Clicks</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">CTR</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Type</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {finalList.map((b) => (
-                    <tr key={b.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {b.video_url ? (
-                          <video src={b.video_url} className="w-40 h-16 rounded object-cover" muted playsInline />
-                        ) : b.image_url ? (
-                          <img src={b.image_url} className="w-40 h-16 object-cover rounded" alt="banner" />
-                        ) : (
-                          <span className="text-xs text-gray-400">No media</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="text-sm font-medium text-gray-900">{b.cta_text || '-'}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[280px]">{b.cta_url || '-'}</div>
-                      </td>
-                      <td className="px-4 py-2 text-sm">{b.impressions?.toLocaleString?.() || b.impressions || 0}</td>
-                      <td className="px-4 py-2 text-sm">{b.clicks?.toLocaleString?.() || b.clicks || 0}</td>
-                      <td className="px-4 py-2 text-sm">{typeof b.ctr === 'number' ? `${b.ctr.toFixed(2)}%` : `${Number(b.ctr||0).toFixed(2)}%`}</td>
-                      <td className="px-4 py-2 text-sm">{b.video_url ? 'Video' : 'Image'}</td>
+            <>
+              <div className="overflow-x-auto hidden md:block">
+                <table className="min-w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Preview</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">CTA</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Impressions</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Clicks</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">CTR</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Type</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {finalList.map((b) => (
+                      <tr key={b.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {b.video_url ? (
+                            <video src={b.video_url} className="w-40 h-16 rounded object-cover" muted playsInline />
+                          ) : b.image_url ? (
+                            <img src={b.image_url} className="w-40 h-16 object-cover rounded" alt="banner" />
+                          ) : (
+                            <span className="text-xs text-gray-400">No media</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="text-sm font-medium text-gray-900">{b.cta_text || '-'}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[280px]">{b.cta_url || '-'}</div>
+                        </td>
+                        <td className="px-4 py-2 text-sm">{b.impressions?.toLocaleString?.() || b.impressions || 0}</td>
+                        <td className="px-4 py-2 text-sm">{b.clicks?.toLocaleString?.() || b.clicks || 0}</td>
+                        <td className="px-4 py-2 text-sm">{typeof b.ctr === 'number' ? `${b.ctr.toFixed(2)}%` : `${Number(b.ctr||0).toFixed(2)}%`}</td>
+                        <td className="px-4 py-2 text-sm">{b.video_url ? 'Video' : 'Image'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="md:hidden divide-y">
+                {finalList.map((b) => (
+                  <div key={b.id} className="p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-16 w-28 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                        {b.video_url ? (
+                          <video src={b.video_url} className="h-full w-full object-cover" muted playsInline />
+                        ) : b.image_url ? (
+                          <img src={b.image_url} className="h-full w-full object-cover" alt="banner" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No media</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">{b.cta_text || '-'}</div>
+                        <div className="text-xs text-gray-500 truncate">{b.cta_url || '-'}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-600">Impr: <span className="font-medium">{b.impressions || 0}</span></span>
+                        <span className="text-gray-600">Clicks: <span className="font-medium">{b.clicks || 0}</span></span>
+                      </div>
+                      <span className="text-gray-900 font-semibold">{typeof b.ctr === 'number' ? `${b.ctr.toFixed(2)}%` : `${Number(b.ctr||0).toFixed(2)}%`}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{b.video_url ? 'Video' : 'Image'}</div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
