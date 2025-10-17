@@ -48,7 +48,7 @@ const ModernLayout = ({ children, user }) => {
         />
 
         {/* Page Content */}
-        <main className="p-4 lg:p-8">
+        <main className="min-h-[calc(100vh-64px)] overflow-y-auto p-4 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

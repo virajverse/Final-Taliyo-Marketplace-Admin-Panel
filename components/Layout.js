@@ -6,7 +6,7 @@ const Layout = ({ children, user }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
@@ -18,7 +18,7 @@ const Layout = ({ children, user }) => {
         />
         
         {/* Page content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+        <main className="flex-1 min-h-[calc(100vh-64px)] overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

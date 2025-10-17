@@ -238,13 +238,13 @@ export default function Banners() {
     };
 
     return (
-      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl w-full max-w-lg shadow-xl">
+      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col min-h-0">
           <div className="px-5 py-4 border-b flex items-center justify-between">
             <h3 className="text-lg font-bold">{form.id ? 'Edit Banner' : 'New Banner'}</h3>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
           </div>
-          <div className="p-5 space-y-4">
+          <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div>
               <label className="text-sm font-medium text-gray-700">Image URL</label>
               <input value={form.image_url} onChange={(e)=>setForm({ ...form, image_url: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://..." />
