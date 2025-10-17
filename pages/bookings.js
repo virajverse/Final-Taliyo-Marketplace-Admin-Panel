@@ -96,6 +96,23 @@ export default function Bookings() {
     }
   };
 
+  const updateBookingTimeline = async (bookingId, step, label, note) => {
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timelineStep: step, timelineLabel: label, timelineNote: note })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed');
+      fetchBookings();
+      alert('Order progress updated successfully');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to update order progress');
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('en-IN', {
       year: 'numeric',
@@ -155,8 +172,19 @@ export default function Bookings() {
     URL.revokeObjectURL(url);
   };
 
-  const BookingModal = ({ booking, onClose, onStatusUpdate }) => {
+  const BookingModal = ({ booking, onClose, onStatusUpdate, onTimelineUpdate }) => {
     const [newStatus, setNewStatus] = useState(booking.status);
+    const [timelineStep, setTimelineStep] = useState(1);
+    const [timelineNote, setTimelineNote] = useState('');
+    const steps7 = [
+      { value: 1, label: 'Requested' },
+      { value: 2, label: 'Details Confirmed' },
+      { value: 3, label: 'Quoted' },
+      { value: 4, label: 'Advance Paid' },
+      { value: 5, label: 'Work Started' },
+      { value: 6, label: 'In Review' },
+      { value: 7, label: 'Delivered' }
+    ];
 
     const handleStatusUpdate = () => {
       onStatusUpdate(booking.id, newStatus);
@@ -185,6 +213,8 @@ export default function Bookings() {
     };
 
     const files = safeParse(booking.files, []);
+    const notesObj = (() => { try { return booking?.additional_notes ? JSON.parse(booking.additional_notes) : {}; } catch { return {}; } })();
+    const timeline = Array.isArray(notesObj?.timeline) ? notesObj.timeline : [];
 
     return (
       <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center modal-backdrop p-4 backdrop-blur-sm">
@@ -332,6 +362,53 @@ export default function Bookings() {
                 </div>
               </div>
             )}
+
+            {timeline.length > 0 && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Order Progress</h3>
+                <div className="space-y-2 text-sm">
+                  {timeline.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">Step {t.step}:</span> {t.label}{t.note ? ` — ${t.note}` : ''}
+                      </div>
+                      <div className="text-xs text-gray-500">{new Date(t.at).toLocaleString('en-IN')}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-2">Update Order Step</h3>
+              <div className="flex flex-col md:flex-row gap-3">
+                <select
+                  value={timelineStep}
+                  onChange={(e) => setTimelineStep(Number(e.target.value))}
+                  className="border border-gray-300 rounded px-3 py-2"
+                >
+                  {steps7.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                <input
+                  value={timelineNote}
+                  onChange={(e) => setTimelineNote(e.target.value)}
+                  placeholder="Optional note"
+                  className="border border-gray-300 rounded px-3 py-2 flex-1"
+                />
+                <button
+                  onClick={() => {
+                    const lbl = (steps7.find(x => x.value === Number(timelineStep)) || {}).label;
+                    onTimelineUpdate(booking.id, Number(timelineStep), lbl, timelineNote);
+                    setTimelineNote('');
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                  Add Timeline Entry
+                </button>
+              </div>
+            </div>
 
             {/* Status Update */}
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -588,6 +665,7 @@ export default function Bookings() {
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
           onStatusUpdate={updateBookingStatus}
+          onTimelineUpdate={updateBookingTimeline}
         />
       )}
     </ModernLayout>
