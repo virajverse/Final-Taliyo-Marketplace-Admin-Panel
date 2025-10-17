@@ -42,6 +42,8 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       if (!rateLimit(req, res, 'admin_banners_write', 60, 60 * 1000)) return
       const body = req.body || {}
+      const dm = Number(body.duration_ms)
+      const oo = Number(body.overlay_opacity)
       const clean = {
         image_url: body.image_url?.trim() || null,
         video_url: body.video_url?.trim() || null,
@@ -49,9 +51,9 @@ export default async function handler(req, res) {
         cta_url: body.cta_url?.trim() || null,
         cta_align: ['left','center','right'].includes(body.cta_align) ? body.cta_align : 'center',
         target: ['all','mobile','desktop'].includes(body.target) ? body.target : 'all',
-        duration_ms: body.duration_ms ? Number(body.duration_ms) : null,
-        overlay_opacity: body.overlay_opacity !== undefined && body.overlay_opacity !== ''
-          ? Math.max(0, Math.min(0.6, Number(body.overlay_opacity)))
+        duration_ms: Number.isFinite(dm) ? dm : null,
+        overlay_opacity: (body.overlay_opacity !== undefined && body.overlay_opacity !== '' && Number.isFinite(oo))
+          ? Math.max(0, Math.min(0.6, oo))
           : null,
         alt_text: body.alt_text?.trim() || null,
         aria_label: body.aria_label?.trim() || null,

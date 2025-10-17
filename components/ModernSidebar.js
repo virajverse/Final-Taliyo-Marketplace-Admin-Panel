@@ -73,6 +73,12 @@ const ModernSidebar = ({ isOpen, onClose }) => {
       description: 'Manage Homepage Media'
     },
     { 
+      name: 'Media Gallery', 
+      href: '/media-gallery', 
+      icon: FolderOpen,
+      description: 'View Uploaded Files'
+    },
+    { 
       name: 'Banner Analytics', 
       href: '/banner-analytics', 
       icon: TrendingUp,

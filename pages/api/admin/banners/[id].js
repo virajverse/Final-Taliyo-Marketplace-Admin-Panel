@@ -28,12 +28,29 @@ export default async function handler(req, res) {
       for (const k of copy) if (k in body) clean[k] = (body[k] ?? null)
       if ('cta_align' in body) clean.cta_align = ['left','center','right'].includes(body.cta_align) ? body.cta_align : 'center'
       if ('target' in body) clean.target = ['all','mobile','desktop'].includes(body.target) ? body.target : 'all'
-      if ('duration_ms' in body) clean.duration_ms = body.duration_ms ? Number(body.duration_ms) : null
-      if ('overlay_opacity' in body) clean.overlay_opacity = body.overlay_opacity !== '' && body.overlay_opacity !== undefined ? Math.max(0, Math.min(0.6, Number(body.overlay_opacity))) : null
-      if ('start_at' in body) clean.start_at = body.start_at ? new Date(body.start_at).toISOString() : null
-      if ('end_at' in body) clean.end_at = body.end_at ? new Date(body.end_at).toISOString() : null
-      if ('active' in body) clean.active = !!body.active
-      if ('sort_order' in body) clean.sort_order = Number(body.sort_order) || 0
+      if ('duration_ms' in body) {
+        const dm = Number(body.duration_ms)
+        clean.duration_ms = Number.isFinite(dm) ? dm : null
+      }
+      if ('overlay_opacity' in body) {
+        const oo = Number(body.overlay_opacity)
+        clean.overlay_opacity = (body.overlay_opacity !== '' && body.overlay_opacity !== undefined && Number.isFinite(oo))
+          ? Math.max(0, Math.min(0.6, oo))
+          : null
+      }
+      if ('start_at' in body) {
+        const ts = Date.parse(body.start_at)
+        clean.start_at = Number.isFinite(ts) ? new Date(ts).toISOString() : null
+      }
+      if ('end_at' in body) {
+        const te = Date.parse(body.end_at)
+        clean.end_at = Number.isFinite(te) ? new Date(te).toISOString() : null
+      }
+      if ('active' in body) clean.active = !!(body.active === true || body.active === 'true')
+      if ('sort_order' in body) {
+        const so = Number(body.sort_order)
+        clean.sort_order = Number.isFinite(so) ? so : 0
+      }
       clean.updated_at = new Date().toISOString()
 
       const { data, error } = await supabase
