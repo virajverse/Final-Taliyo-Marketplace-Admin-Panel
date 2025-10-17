@@ -114,6 +114,7 @@ const ModernSidebar = ({ isOpen, onClose }) => {
       <div className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out
         lg:fixed lg:inset-y-0 lg:left-0 lg:translate-x-0 lg:flex-shrink-0
+        flex flex-col h-screen min-h-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header */}
@@ -133,7 +134,7 @@ const ModernSidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 min-h-0 px-4 py-6 space-y-1 overflow-y-auto overscroll-y-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           {navigation.map((item) => {
             const isActive = router.pathname === item.href
             return (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ModernLayout from '../components/ModernLayout';
 import { useRouter } from 'next/router';
 import { checkSession } from '../lib/simpleAuth';
@@ -13,6 +13,28 @@ export default function Banners() {
   const [limit, setLimit] = useState(3);
   const [savingLimit, setSavingLimit] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
+  const sliderRef = useRef(null);
+
+  const scrollByCard = (dir) => {
+    try {
+      const el = sliderRef.current
+      if (!el) return
+      const first = el.firstElementChild
+      const gap = 16 // matches gap-4
+      const w = first ? first.getBoundingClientRect().width : el.clientWidth * 0.85
+      el.scrollBy({ left: dir * (w + gap), behavior: 'smooth' })
+    } catch {}
+  }
+
+  const onSliderWheel = (e) => {
+    const el = sliderRef.current
+    if (!el) return
+    // Convert vertical wheel to horizontal scroll for better UX
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+  }
 
   useEffect(() => {
     const session = checkSession();
@@ -436,55 +458,79 @@ export default function Banners() {
                   </tbody>
                 </table>
               </div>
-              {/* Mobile cards */}
-              <div className="md:hidden divide-y">
-                {banners.map((b, idx) => (
+              {/* Mobile slider */}
+              <div className="md:hidden">
+                <div className="relative">
+                  {/* Prev/Next controls */}
+                  {banners.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous"
+                        onClick={() => scrollByCard(-1)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-9 w-9 rounded-full bg-white/90 border border-gray-200 shadow flex items-center justify-center active:scale-95"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next"
+                        onClick={() => scrollByCard(1)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-9 w-9 rounded-full bg-white/90 border border-gray-200 shadow flex items-center justify-center active:scale-95"
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
                   <div
-                    key={b.id}
-                    className="p-4 flex flex-col gap-3 active:bg-gray-50"
-                    draggable
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDrop={(e) => handleDrop(e, idx)}
+                    ref={sliderRef}
+                    className="flex overflow-x-auto gap-4 px-4 py-3 snap-x snap-mandatory scroll-smooth overscroll-x-contain"
+                    onWheel={onSliderWheel}
+                    style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-16 w-28 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                        {b.video_url ? (
-                          <video src={b.video_url} className="h-full w-full object-cover" muted playsInline />
-                        ) : b.image_url ? (
-                          <img src={b.image_url} className="h-full w-full object-cover" alt="banner" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No media</div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-gray-900 truncate">{b.cta_text || '-'}</div>
-                        <div className="text-xs text-gray-500 truncate">{b.cta_url || '-'}</div>
-                        {(b.start_at || b.end_at) && (
-                          <div className="text-[11px] text-gray-500 mt-1 truncate">
-                            {b.start_at ? `From: ${new Date(b.start_at).toLocaleDateString()} ` : ''}
-                            {b.end_at ? `To: ${new Date(b.end_at).toLocaleDateString()}` : ''}
+                    {banners.map((b, idx) => (
+                      <div
+                        key={b.id}
+                        className="snap-center snap-always flex-none w-[88%] bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3 shadow-sm"
+                      >
+                        <div className="h-40 w-full rounded overflow-hidden bg-gray-100">
+                          {b.video_url ? (
+                            <video src={b.video_url} className="h-full w-full object-cover" muted playsInline />
+                          ) : b.image_url ? (
+                            <img src={b.image_url} className="h-full w-full object-cover" alt="banner" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No media</div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 truncate">{b.cta_text || '-'}</div>
+                          <div className="text-xs text-gray-500 truncate">{b.cta_url || '-'}</div>
+                          {(b.start_at || b.end_at) && (
+                            <div className="text-[11px] text-gray-500 mt-1 truncate">
+                              {b.start_at ? `From: ${new Date(b.start_at).toLocaleDateString()} ` : ''}
+                              {b.end_at ? `To: ${new Date(b.end_at).toLocaleDateString()}` : ''}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Align: <span className="font-medium">{b.cta_align || 'center'}</span></span>
+                          <button onClick={() => toggleActive(b)} className={`px-2 py-1 rounded ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.active ? 'Active' : 'Inactive'}</button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button disabled={idx===0} onClick={() => move(idx, -1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Up</button>
+                            <button disabled={idx===banners.length-1} onClick={() => move(idx, 1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Down</button>
+                            <span className="text-xs text-gray-500">#{b.sort_order ?? idx}</span>
                           </div>
-                        )}
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setEditing(b)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
+                            <button onClick={() => deleteBanner(b.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm">Delete</button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Align: <span className="font-medium">{b.cta_align || 'center'}</span></span>
-                      <button onClick={() => toggleActive(b)} className={`px-2 py-1 rounded ${b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{b.active ? 'Active' : 'Inactive'}</button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button disabled={idx===0} onClick={() => move(idx, -1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Up</button>
-                        <button disabled={idx===banners.length-1} onClick={() => move(idx, 1)} className="px-2 py-1 border rounded disabled:opacity-50 text-sm">Down</button>
-                        <span className="text-xs text-gray-500">#{b.sort_order ?? idx}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setEditing(b)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
-                        <button onClick={() => deleteBanner(b.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm">Delete</button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </>
           )}

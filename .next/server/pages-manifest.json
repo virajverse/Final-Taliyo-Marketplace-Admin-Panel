@@ -1,15 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/api/admin/categories": "pages/api/admin/categories.js",
-  "/manage-categories": "pages/manage-categories.js",
-  "/api/admin/subcategories": "pages/api/admin/subcategories.js",
-  "/analytics": "pages/analytics.js",
-  "/api/admin/analytics": "pages/api/admin/analytics.js",
-  "/tracking": "pages/tracking.js",
-  "/api/admin/tracking": "pages/api/admin/tracking.js",
-  "/banners": "pages/banners.js",
-  "/banner-analytics": "pages/banner-analytics.js",
-  "/api/admin/banner-events": "pages/api/admin/banner-events.js"
-}
+{}

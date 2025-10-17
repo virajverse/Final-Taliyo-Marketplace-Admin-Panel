@@ -10,12 +10,23 @@ const getAdminClient = () => {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
+const getClientForRead = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url) throw new Error('missing_env')
+  const key = serviceKey || anonKey
+  if (!key) throw new Error('missing_env')
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
 export default async function handler(req, res) {
   const ok = requireAdmin(req, res)
   if (!ok) return
 
   try {
-    const supabase = getAdminClient()
+    // Use service role for writes, allow anon fallback for reads
+    const supabase = req.method === 'GET' ? getClientForRead() : getAdminClient()
 
     if (req.method === 'GET') {
       if (!rateLimit(req, res, 'admin_banners_read', 300, 60 * 1000)) return
@@ -62,7 +73,12 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'method_not_allowed' })
   } catch (e) {
-    console.error('banners_index_failed', { message: e?.message })
-    return res.status(500).json({ error: 'banners_failed', message: e?.message })
+    const msg = e?.message || ''
+    console.error('banners_index_failed', { message: msg })
+    if (req.method === 'GET') {
+      // Degraded mode for any read error: return empty list to keep UI functional
+      return res.status(200).json({ data: [], degraded: true, message: msg })
+    }
+    return res.status(500).json({ error: 'banners_failed', message: msg })
   }
 }
