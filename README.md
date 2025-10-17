@@ -1,183 +1,164 @@
-# Taliyo Admin Panel
+# 🚀 Taliyo Admin Panel — Launch your marketplace control tower
 
-A Next.js admin panel for managing the Taliyo marketplace with Supabase backend.
+![Build](https://img.shields.io/badge/build-passing-22c55e?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.1.0-6366f1?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-0ea5e9?style=for-the-badge)
+![Stack](https://img.shields.io/badge/stack-Next.js%20%7C%20Tailwind%20%7C%20Supabase-22d3ee?style=for-the-badge)
 
-## Features
+> A modern admin cockpit for Taliyo Marketplace — manage products, banners, analytics, and growth from a single sleek dashboard.
 
-- 🔐 **Secure Authentication** - Email/password and Google OAuth
-- 📊 **Dashboard** - Real-time analytics and metrics
-- 📤 **Excel Upload** - Bulk upload services, products, and packages
-- 📈 **Click Tracking** - Monitor WhatsApp order clicks
-- 👥 **Admin Management** - Control panel access
-- 🎨 **Modern UI** - Clean, responsive design with Tailwind CSS
+---
 
-## Tech Stack
+## 📚 Table of Contents
+1. [Overview](#-overview)
+2. [Screenshots & Demo](#-screenshots--demo)
+3. [Tech Stack](#-tech-stack)
+4. [Features](#-features)
+5. [Installation](#-installation)
+6. [Usage](#-usage)
+7. [Folder Structure](#-folder-structure)
+8. [Contributing](#-contributing)
+9. [License](#-license)
+10. [Contact](#-contact)
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, Auth, Realtime)
-- **Icons**: Lucide React
-- **File Processing**: SheetJS (xlsx)
+---
 
-## Setup
+## ✨ Overview
+Taliyo Admin Panel is the control center for the Taliyo Marketplace ecosystem. Built for operational teams, it combines real-time analytics, inventory management, marketing controls, and secure admin workflows.
 
-### 1. Environment Variables
+**Why it stands out**
+- Mission-critical admin tooling with a product-grade UX.
+- Secure Supabase-powered APIs and audit trails.
+- Responsive layouts with mobile-first dashboards.
 
-Create `.env.local` file in the admin-panel directory:
+---
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-```
+## 🖼 Screenshots & Demo
+| Dashboard | Product Management | Banner Analytics |
+|-----------|-------------------|------------------|
+| _Add `./docs/dashboard.png`_ | _Add `./docs/products.png`_ | _Add `./docs/banner-analytics.png`_ |
 
-### 2. Supabase Database Schema
+- **Live Demo:** _Add your deployment URL here_
+- **Video Walkthrough:** _Add Loom/YouTube link here_
 
-Run these SQL commands in your Supabase SQL editor:
+---
 
-```sql
--- Create items table for services, products, packages
-CREATE TABLE items (
-  id BIGSERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT,
-  type TEXT NOT NULL DEFAULT 'service', -- 'service', 'product', 'package'
-  price DECIMAL(10,2),
-  whatsapp_link TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+## ⚙️ Tech Stack
+- ⚡ **Framework:** ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)
+- 🎨 **UI:** ![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-38bdf8?logo=tailwind-css&logoColor=white)
+- 🔥 **Backend/API:** ![Supabase](https://img.shields.io/badge/Supabase-3ecf8e?logo=supabase&logoColor=white)
+- 📊 **Charts:** ![Chart.js](https://img.shields.io/badge/Chart.js-f87171?logo=chart.js&logoColor=white)
+- 🔐 **Auth:** ![JSON Web Tokens](https://img.shields.io/badge/JWT-0ea5e9?logo=jsonwebtokens&logoColor=white)
 
--- Create order_clicks table for tracking
-CREATE TABLE order_clicks (
-  id BIGSERIAL PRIMARY KEY,
-  item_id BIGINT REFERENCES items(id),
-  clicked_at TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+---
 
--- Create admins table
-CREATE TABLE admins (
-  id BIGSERIAL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+## ✅ Features
+- ✔️ **Live Inventory Control** — manage products, services, and packages in real time.
+- ✔️ **Banner CMS** — upload media, schedule campaigns, and track impressions.
+- ✔️ **Admin Authentication** — secure session cookies and role-guarded APIs.
+- ✔️ **Analytics Hub** — bookings, click tracking, and conversion dashboards.
+- ✔️ **Bulk Operations** — CSV/XLSX import, drag-and-drop reordering, and audit logs.
+- ✔️ **Mobile Responsive** — optimized views for tablets and phones.
 
--- Create indexes for better performance
-CREATE INDEX idx_items_type ON items(type);
-CREATE INDEX idx_items_category ON items(category);
-CREATE INDEX idx_order_clicks_item_id ON order_clicks(item_id);
-CREATE INDEX idx_order_clicks_created_at ON order_clicks(created_at);
-```
+---
 
-### 3. Row Level Security (RLS)
-
-Enable RLS and create policies:
-
-```sql
--- Enable RLS
-ALTER TABLE items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_clicks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
-
--- Allow authenticated users to read items
-CREATE POLICY "Allow authenticated users to read items" ON items
-FOR SELECT TO authenticated USING (true);
-
--- Allow service role to manage all data
-CREATE POLICY "Allow service role full access to items" ON items
-FOR ALL TO service_role USING (true);
-
-CREATE POLICY "Allow service role full access to order_clicks" ON order_clicks
-FOR ALL TO service_role USING (true);
-
-CREATE POLICY "Allow service role full access to admins" ON admins
-FOR ALL TO service_role USING (true);
-```
-
-### 4. Install Dependencies
-
+## 🛠 Installation
 ```bash
+# Clone the repo
+git clone https://github.com/virajverse/Final-Taliyo-Marketplace-Admin-Panel.git
 cd admin-panel
-npm install
+
+# Install dependencies
+pnpm install
+
+# Configure environment
+cp .env.example .env.local
+# fill in Supabase + Admin credentials
+
+# Start development server
+pnpm dev
 ```
 
-### 5. Run Development Server
+---
 
+## 🚀 Usage
+### Start locally
 ```bash
-npm run dev
+pnpm dev
 ```
+Open `http://localhost:3001`.
 
-The admin panel will be available at `http://localhost:3001`
-
-## Admin Access
-
-Only pre-approved email addresses can access the admin panel:
-
-- `taliyotechnologies@gmail.com`
-- `harshbudhauliya882@gmail.com`
-
-Additional admins can be added through the "Manage Admins" section.
-
-## Excel Upload Format
-
-### Required Columns
-- `title` - Item name
-- `description` - Item description  
-- `category` - Item category
-- `price` - Item price (optional)
-- `whatsapp_link` - WhatsApp contact link
-
-### Sheet Names
-- `services` - For service listings
-- `products` - For product listings
-- `packages` - For package deals
-
-## API Integration
-
-To track clicks from your main app, send POST requests to:
-
-```javascript
-// Track WhatsApp clicks
-await supabase
-  .from('order_clicks')
-  .insert({
-    item_id: itemId,
-    clicked_at: new Date().toISOString()
-  })
-```
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push code to GitHub
-2. Connect repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Manual Deployment
-
+### Build & run production
 ```bash
-npm run build
-npm start
+pnpm build
+pnpm start
 ```
 
-## Project Structure
+### Lint
+```bash
+pnpm lint
+```
 
+---
+
+## 📁 Folder Structure
 ```
 admin-panel/
-├── components/          # Reusable React components
-├── lib/                # Utility functions and configurations
-├── pages/              # Next.js pages and API routes
-├── styles/             # CSS and styling
-├── public/             # Static assets
+├── components/
+│   ├── ModernLayout.js
+│   ├── ModernSidebar.js
+│   └── ...
+├── pages/
+│   ├── index.js
+│   ├── banners.js
+│   ├── products.js
+│   └── api/
+│       └── admin/
+│           ├── banners/
+│           ├── services/
+│           └── ...
+├── public/
+├── styles/
+│   └── globals.css
+├── next.config.mjs
+├── package.json
 └── README.md
 ```
 
-## Support
+---
 
-For issues or questions, contact the development team at contact@taliyotechnologies.com
+## 🤝 Contributing
+We welcome contributions!
+
+1. Fork the repository.
+2. Create a feature branch:
+   ```bash
+   git checkout -b feature/amazing-upgrade
+   ```
+3. Commit your changes:
+   ```bash
+   git commit -m "feat: add amazing upgrade"
+   ```
+4. Push and open a PR.
+
+👀 Please include screenshots or Loom demos for UI changes and reference related issues.
+
+---
+
+## 📜 License
+![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
+
+This project is licensed under the MIT License — see [`LICENSE`](./LICENSE) for details.
+
+---
+
+## 📬 Contact
+| Name | GitHub | LinkedIn | Website |
+|------|--------|----------|---------|
+| Viraj | [@virajverse](https://github.com/virajverse) | [LinkedIn](https://www.linkedin.com/in/virajverse/) | [www.viraj.dev](https://www.viraj.dev) |
+
+Need support? Drop an issue or ping us at `team@taliyo.com`.
+
+---
+
+_Built with 💙 by the Taliyo team — turning marketplace operations into a delight._
