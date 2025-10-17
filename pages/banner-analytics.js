@@ -49,6 +49,10 @@ export default function BannerAnalytics() {
         params.set('days', days)
       }
       const res = await fetch(`/api/admin/banner-events?${params.toString()}`)
+      if (res.status === 401) {
+        router.push('/login?error=unauthorized')
+        return
+      }
       const json = await res.json()
       if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load banner analytics')
       setData(json.data || { totals: { impressions: 0, clicks: 0, ctr: 0 }, perBanner: [], timeline: [] })
@@ -126,17 +130,17 @@ export default function BannerAnalytics() {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Banner Analytics</h1>
             <p className="text-gray-600 mt-1">Impressions, clicks and CTR for homepage banners</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full md:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Calendar size={16} className="text-gray-500" />
-              <select value={mode} onChange={(e)=>setMode(e.target.value)} className="border rounded px-2 py-1">
+              <select value={mode} onChange={(e)=>setMode(e.target.value)} className="border rounded px-2 py-1 w-full sm:w-auto">
                 <option value="preset">Presets</option>
                 <option value="custom">Custom Range</option>
               </select>
             </div>
             {mode === 'preset' ? (
-              <div className="flex items-center gap-2">
-                <select value={days} onChange={(e)=>setDays(e.target.value)} className="border rounded px-2 py-1">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select value={days} onChange={(e)=>setDays(e.target.value)} className="border rounded px-2 py-1 w-full sm:w-auto">
                   <option value="1">Last 24 hours</option>
                   <option value="7">Last 7 days</option>
                   <option value="30">Last 30 days</option>
@@ -144,13 +148,13 @@ export default function BannerAnalytics() {
                 </select>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <input
                   type="date"
                   value={fromDate}
                   max={toDate || undefined}
                   onChange={(e)=>setFromDate(e.target.value)}
-                  className="border rounded px-3 py-1 text-sm"
+                  className="border rounded px-3 py-1 text-sm w-full sm:w-auto"
                 />
                 <span className="text-xs text-gray-500">to</span>
                 <input
@@ -158,13 +162,13 @@ export default function BannerAnalytics() {
                   value={toDate}
                   min={fromDate || undefined}
                   onChange={(e)=>setToDate(e.target.value)}
-                  className="border rounded px-3 py-1 text-sm"
+                  className="border rounded px-3 py-1 text-sm w-full sm:w-auto"
                 />
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Filter size={16} className="text-gray-500" />
-              <select value={filter} onChange={(e)=>setFilter(e.target.value)} className="border rounded px-2 py-1">
+              <select value={filter} onChange={(e)=>setFilter(e.target.value)} className="border rounded px-2 py-1 w-full sm:w-auto">
                 <option value="all">All</option>
                 <option value="image">Images</option>
                 <option value="video">Videos</option>
@@ -174,9 +178,9 @@ export default function BannerAnalytics() {
               value={search}
               onChange={(e)=>setSearch(e.target.value)}
               placeholder="Search banners (CTA, URL, ID)"
-              className="border rounded px-3 py-1 text-sm w-56"
+              className="border rounded px-3 py-1 text-sm w-full sm:w-56"
             />
-            <button onClick={exportCSV} className="px-3 py-2 border rounded hover:bg-gray-50 flex items-center">
+            <button onClick={exportCSV} className="px-3 py-2 border rounded hover:bg-gray-50 flex items-center w-full sm:w-auto justify-center">
               <Download size={16} className="mr-2" /> Export
             </button>
           </div>

@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import ModernLayout from '../components/ModernLayout';
 import { useRouter } from 'next/router';
-import { createClient } from '@supabase/supabase-js';
 import { checkSession } from '../lib/simpleAuth';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+ 
 
 export default function Banners() {
   const router = useRouter();
@@ -29,21 +26,20 @@ export default function Banners() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [{ data: bannersData }, { data: setting }] = await Promise.all([
-        supabase
-          .from('banners')
-          .select('id,image_url,video_url,cta_text,cta_url,cta_align,start_at,end_at,target,duration_ms,overlay_opacity,alt_text,aria_label,active,sort_order,created_at,updated_at')
-          .order('sort_order', { ascending: true })
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('site_settings')
-          .select('value')
-          .eq('key', 'home_banner_limit')
-          .maybeSingle(),
-      ]);
-      setBanners(bannersData || []);
-      const parsed = Number(setting?.value);
-      setLimit(!Number.isNaN(parsed) && parsed > 0 ? parsed : 3);
+      const [bRes, lRes] = await Promise.all([
+        fetch('/api/admin/banners'),
+        fetch('/api/admin/banners/limit'),
+      ])
+      if (bRes.status === 401 || lRes.status === 401) {
+        router.push('/login?error=unauthorized')
+        return
+      }
+      const [bJson, lJson] = await Promise.all([bRes.json(), lRes.json()])
+      if (!bRes.ok) throw new Error(bJson?.error || 'failed')
+      if (!lRes.ok) throw new Error(lJson?.error || 'failed')
+      setBanners(bJson.data || [])
+      const parsed = Number(lJson?.value)
+      setLimit(!Number.isNaN(parsed) && parsed > 0 ? parsed : 3)
     } catch (e) {
       console.error('Failed to fetch', e);
       setBanners([]);
@@ -55,13 +51,21 @@ export default function Banners() {
   // Drag & Drop reorder with auto-save
   const saveOrder = async (arr) => {
     try {
-      await Promise.all(
-        arr.map((b, i) => supabase.from('banners').update({ sort_order: i }).eq('id', b.id))
-      );
-      setBanners(arr);
+      const order = arr.map(b => b.id)
+      const res = await fetch('/api/admin/banners/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order })
+      })
+      if (res.status === 401) {
+        router.push('/login?error=unauthorized')
+        return
+      }
+      if (!res.ok) throw new Error('failed')
+      setBanners(arr)
     } catch (e) {
-      console.error(e);
-      alert('Save order failed');
+      console.error(e)
+      alert('Save order failed')
     }
   };
 
@@ -98,25 +102,31 @@ export default function Banners() {
         end_at: banner.end_at ? new Date(banner.end_at).toISOString() : null,
         active: banner.active ?? true,
         sort_order: banner.sort_order ?? (banners.length ? Math.max(...banners.map(b => b.sort_order || 0)) + 1 : 0),
-      };
-      if (banner.id) {
-        await supabase.from('banners').update(clean).eq('id', banner.id);
-      } else {
-        await supabase.from('banners').insert([clean]);
       }
-      setEditing(null);
-      fetchAll();
+      const url = banner.id ? `/api/admin/banners/${banner.id}` : '/api/admin/banners'
+      const method = banner.id ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clean)
+      })
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
+      if (!res.ok) throw new Error('failed')
+      setEditing(null)
+      fetchAll()
     } catch (e) {
-      alert('Save failed');
-      console.error(e);
+      alert('Save failed')
+      console.error(e)
     }
   };
 
   const deleteBanner = async (id) => {
     if (!confirm('Delete this banner?')) return;
     try {
-      await supabase.from('banners').delete().eq('id', id);
-      fetchAll();
+      const res = await fetch(`/api/admin/banners/${id}`, { method: 'DELETE' })
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
+      if (!res.ok) throw new Error('failed')
+      fetchAll()
     } catch (e) {
       alert('Delete failed');
     }
@@ -124,7 +134,13 @@ export default function Banners() {
 
   const toggleActive = async (b) => {
     try {
-      await supabase.from('banners').update({ active: !b.active }).eq('id', b.id);
+      const res = await fetch(`/api/admin/banners/${b.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !b.active })
+      })
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
+      if (!res.ok) throw new Error('failed')
       fetchAll();
     } catch (e) {
       alert('Update failed');
@@ -136,11 +152,10 @@ export default function Banners() {
     const b = banners[index + dir];
     if (!a || !b) return;
     try {
-      await Promise.all([
-        supabase.from('banners').update({ sort_order: b.sort_order ?? 0 }).eq('id', a.id),
-        supabase.from('banners').update({ sort_order: a.sort_order ?? 0 }).eq('id', b.id),
-      ]);
-      fetchAll();
+      const arr = [...banners]
+      const [moved] = arr.splice(index, 1)
+      arr.splice(index + dir, 0, moved)
+      await saveOrder(arr)
     } catch (e) {
       alert('Reorder failed');
     }
@@ -149,14 +164,14 @@ export default function Banners() {
   const saveLimit = async () => {
     setSavingLimit(true);
     try {
-      const value = String(Math.max(1, Number(limit) || 3));
-      const { data: row } = await supabase
-        .from('site_settings')
-        .select('key')
-        .eq('key', 'home_banner_limit')
-        .maybeSingle();
-      if (row) await supabase.from('site_settings').update({ value }).eq('key', 'home_banner_limit');
-      else await supabase.from('site_settings').insert([{ key: 'home_banner_limit', value }]);
+      const value = Math.max(1, Number(limit) || 3)
+      const res = await fetch('/api/admin/banners/limit', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      })
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
+      if (!res.ok) throw new Error('failed')
       alert('Limit saved');
     } catch (e) {
       alert('Failed to save limit');
@@ -185,12 +200,19 @@ export default function Banners() {
     });
 
     const uploadToStorage = async (file) => {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'dat';
-      const path = `banners/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from('banners').upload(path, file, { upsert: false, contentType: file.type });
-      if (error) throw error;
-      const { data } = supabase.storage.from('banners').getPublicUrl(path);
-      return data.publicUrl;
+      const filename = file?.name || 'upload.dat'
+      const res = await fetch(`/api/admin/banners/upload?filename=${encodeURIComponent(filename)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': file?.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (res.status === 401) {
+        router.push('/login?error=unauthorized')
+        throw new Error('unauthorized')
+      }
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'upload_failed')
+      return json?.url
     };
 
     return (
@@ -325,21 +347,21 @@ export default function Banners() {
   return (
     <ModernLayout user={{ email: 'admin@taliyo.com' }}>
       <div className="space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Banners</h1>
             <p className="text-gray-600 mt-1">Manage homepage slider banners</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <button onClick={() => setEditing({})} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">New Banner</button>
+          <div className="w-full md:w-auto flex justify-start md:justify-end">
+            <button onClick={() => setEditing({})} className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">New Banner</button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <label className="text-sm font-medium text-gray-700">Home Banner Limit</label>
-            <input type="number" min={1} value={limit} onChange={(e)=>setLimit(Number(e.target.value))} className="w-24 border rounded px-3 py-2" />
-            <button onClick={saveLimit} disabled={savingLimit} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60">{savingLimit ? 'Saving...' : 'Save'}</button>
+            <input type="number" min={1} value={limit} onChange={(e)=>setLimit(Number(e.target.value))} className="w-full sm:w-24 border rounded px-3 py-2" />
+            <button onClick={saveLimit} disabled={savingLimit} className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60">{savingLimit ? 'Saving...' : 'Save'}</button>
           </div>
         </div>
 

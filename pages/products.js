@@ -510,7 +510,7 @@ const Products = ({ user }) => {
   const ProductCard = ({ product }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
       {/* Product Image */}
-      <div className="relative h-48 bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="relative h-40 md:h-48 lg:h-56 bg-gradient-to-br from-blue-50 to-purple-50">
         {safeParse(product.images, []).length > 0 ? (
           <img 
             src={safeParse(product.images, [])[0]} 
@@ -570,7 +570,7 @@ const Products = ({ user }) => {
 
       {/* Product Info */}
       <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
+        <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
           <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">{product.title}</h3>
           <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full flex-shrink-0 ${
             product.type === 'service' 
@@ -592,7 +592,7 @@ const Products = ({ user }) => {
           <span>{new Date(product.created_at).toLocaleDateString()}</span>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <div className="text-sm font-bold text-gray-900">
             {product.price_min && product.price_max && product.price_min !== product.price_max
               ? `₹${product.price_min} - ₹${product.price_max}`
@@ -808,7 +808,7 @@ const Products = ({ user }) => {
               ) : (
                 <div className="space-y-4">
                   {filteredProducts.map((product) => (
-                    <div key={product.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 gap-3">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="h-12 w-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                           {safeParse(product.images, []).length > 0 ? (
@@ -828,7 +828,7 @@ const Products = ({ user }) => {
                           <p className="text-sm text-gray-600">{product.category}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-4">
+                      <div className="mt-2 sm:mt-0 flex items-center space-x-4">
                         <span className="text-sm font-medium">
                           {product.price_min ? `₹${product.price_min}` : 'N/A'}
                         </span>
