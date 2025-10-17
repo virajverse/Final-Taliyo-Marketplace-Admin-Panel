@@ -55,23 +55,35 @@ export default async function handler(req, res) {
 
     if (error) throw error
 
-    const files = (data || [])
-      .filter((item) => item && !item.name?.startsWith('.'))
-      .map((item) => {
-        const fullPath = prefix ? `${prefix}/${item.name}` : item.name
+    const files = []
+    for (const item of data || []) {
+      if (!item || item.name?.startsWith('.')) continue
+      const isFolder = !item.id || item.id === 'folder' || item.metadata === null
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name
+      let publicUrl = null
+      if (!isFolder) {
         const { data: pub } = supabase.storage.from(bucketParam).getPublicUrl(fullPath)
-        return {
-          name: item.name,
-          id: item.id,
-          bucket: bucketParam,
-          fullPath,
-          size: item.metadata?.size ?? item.size ?? null,
-          lastModified: item.updated_at || item.created_at || item.metadata?.lastModified || null,
-          mimeType: item.metadata?.mimetype || item.metadata?.contentType || null,
-          isFolder: item.id ? item.name?.endsWith('/') : false,
-          publicUrl: pub?.publicUrl || null
+        publicUrl = pub?.publicUrl || null
+        if (!publicUrl) {
+          const { data: signed } = await supabase.storage
+            .from(bucketParam)
+            .createSignedUrl(fullPath, 60 * 60 * 24 * 7)
+          if (signed?.signedUrl) publicUrl = signed.signedUrl
         }
+      }
+
+      files.push({
+        name: item.name,
+        id: item.id,
+        bucket: bucketParam,
+        fullPath,
+        size: item.metadata?.size ?? item.size ?? null,
+        lastModified: item.updated_at || item.created_at || item.metadata?.lastModified || null,
+        mimeType: item.metadata?.mimetype || item.metadata?.contentType || null,
+        isFolder,
+        publicUrl
       })
+    }
 
     return res.status(200).json({
       ok: true,
