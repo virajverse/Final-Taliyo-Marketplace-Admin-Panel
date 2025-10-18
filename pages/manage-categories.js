@@ -476,8 +476,8 @@ const ManageCategories = ({ user }) => {
                 
                 return (
                   <div key={category.id} className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
                         <button
                           onClick={() => toggleCategoryExpansion(category.id)}
                           className="text-gray-400 hover:text-gray-600"
@@ -502,9 +502,9 @@ const ManageCategories = ({ user }) => {
                             </span>
                           </div>
                           {category.description && (
-                            <p className="text-gray-600 mt-1">{category.description}</p>
+                            <p className="text-gray-600 mt-1 break-words">{category.description}</p>
                           )}
-                          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
                             <span>Slug: {category.slug}</span>
                             <span>Order: {category.sort_order}</span>
                             {category.icon && <span>Icon: {category.icon}</span>}
@@ -512,7 +512,7 @@ const ManageCategories = ({ user }) => {
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3 sm:space-x-2 mt-3 sm:mt-0 self-start sm:self-auto">
                         <button
                           onClick={() => toggleCategoryStatus(category.id, category.is_active)}
                           className="text-blue-600 hover:text-blue-800"
@@ -543,7 +543,7 @@ const ManageCategories = ({ user }) => {
                     {isExpanded && categorySubcategories.length > 0 && (
                       <div className="mt-4 md:ml-8 ml-3 space-y-2">
                         {categorySubcategories.map((subcategory) => (
-                          <div key={subcategory.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div key={subcategory.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 rounded-lg">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <span className="font-medium text-gray-900">{subcategory.name}</span>
@@ -560,7 +560,7 @@ const ManageCategories = ({ user }) => {
                               </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-3 mt-2 sm:mt-0 self-start sm:self-auto">
                               <button
                                 onClick={() => toggleSubcategoryStatus(subcategory.id, subcategory.is_active)}
                                 className="text-blue-600 hover:text-blue-800"
@@ -591,6 +591,7 @@ const ManageCategories = ({ user }) => {
                     )}
                   </div>
                 )
+
               })
             ) : (
               <div className="p-8 text-center">
