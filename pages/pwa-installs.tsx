@@ -7,6 +7,8 @@ const API_BREAKDOWN = APP_BASE + '/api/pwa-installs/breakdown'
 const API_SERIES = APP_BASE + '/api/pwa-installs/series'
 const API_FUNNEL = APP_BASE + '/api/pwa-installs/funnel'
 const API_LATEST = APP_BASE + '/api/pwa-installs/latest'
+const API_FUNNEL_PLATFORM = APP_BASE + '/api/pwa-installs/funnel-platform'
+const API_SOURCES = APP_BASE + '/api/pwa-installs/sources'
 
 type Stats = {
   devices_total: number
@@ -27,6 +29,9 @@ export default function PWAInstallsPage({ user }: any) {
   const [breakdown, setBreakdown] = useState<{ platform: Record<string, number>, browser: Record<string, number> } | null>(null)
   const [funnel, setFunnel] = useState<{ steps: { impressions: number, prompted: number, accepted: number, first_open: number } } | null>(null)
   const [latest, setLatest] = useState<Array<{ device_id: string, ua: string, platform: string, lang: string, created_at: string }>>([])
+  const [series, setSeries] = useState<{ labels: string[], first_open: number[], appinstalled: number[] } | null>(null)
+  const [platformFunnel, setPlatformFunnel] = useState<{ by_platform: Record<string, { impressions: number, prompted: number, accepted: number, first_open: number }> } | null>(null)
+  const [sources, setSources] = useState<Array<{ label: string, devices: number, installs: number, conversion: number }>>([])
 
   useEffect(() => {
     let on = true
@@ -62,18 +67,27 @@ export default function PWAInstallsPage({ user }: any) {
     const q = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
     ;(async () => {
       try {
-        const [bd, fn, lt] = await Promise.all([
+        const [bd, fn, lt, sr, fp, sc] = await Promise.all([
           fetch(API_BREAKDOWN + q).then(r => r.json()),
           fetch(API_FUNNEL + q).then(r => r.json()),
           fetch(API_LATEST + q + '&limit=20').then(r => r.json()),
+          fetch(API_SERIES + q).then(r => r.json()),
+          fetch(API_FUNNEL_PLATFORM + q).then(r => r.json()),
+          fetch(API_SOURCES + q).then(r => r.json()),
         ])
         if (!alive) return
         if (bd?.error) throw new Error(bd.error)
         if (fn?.error) throw new Error(fn.error)
         if (lt?.error) throw new Error(lt.error)
+        if (sr?.error) throw new Error(sr.error)
+        if (fp?.error) throw new Error(fp.error)
+        if (sc?.error) throw new Error(sc.error)
         setBreakdown({ platform: bd.platform || {}, browser: bd.browser || {} })
         setFunnel(fn)
         setLatest(lt.rows || [])
+        setSeries({ labels: sr.labels || [], first_open: sr.first_open || [], appinstalled: sr.appinstalled || [] })
+        setPlatformFunnel({ by_platform: fp.by_platform || {} })
+        setSources(sc.rows || [])
       } catch (e: any) {
         setErr(e?.message || 'Failed to load breakdown')
       }
@@ -104,6 +118,14 @@ export default function PWAInstallsPage({ user }: any) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card title="Unique Devices" subtitle={`Last 30d: ${stats.devices_last_30d}`} value={stats.devices_total} />
             <Card title="Appinstalled Events" subtitle={`Last 30d: ${stats.installs_last_30d}`} value={stats.installs_total} />
+          </div>
+        )}
+
+        {/* Daily trend */}
+        {series && series.labels?.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold mb-3">Daily Trend</h3>
+            <MiniLine labels={series.labels} a={series.first_open} b={series.appinstalled} aLabel="First Open" bLabel="Appinstalled" />
           </div>
         )}
 
@@ -155,6 +177,29 @@ export default function PWAInstallsPage({ user }: any) {
           </div>
         )}
 
+        {/* Platform conversion */}
+        {platformFunnel && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold mb-3">Conversion by Platform</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(platformFunnel.by_platform).map(([plat, v]) => (
+                <div key={plat} className="rounded-lg border border-gray-200 p-3">
+                  <div className="text-sm font-medium text-gray-800 capitalize mb-1">{plat}</div>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                    <div>Impressions</div><div className="text-right font-semibold text-gray-900">{v.impressions}</div>
+                    <div>Prompted</div><div className="text-right font-semibold text-gray-900">{v.prompted}</div>
+                    <div>Accepted</div><div className="text-right font-semibold text-gray-900">{v.accepted}</div>
+                    <div>First Open</div><div className="text-right font-semibold text-gray-900">{v.first_open}</div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Prompt → Accepted: {v.prompted ? Math.round((v.accepted / v.prompted) * 100) : 0}% | Accepted → First: {v.accepted ? Math.round((v.first_open / v.accepted) * 100) : 0}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Latest installs */}
         {latest?.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -186,6 +231,35 @@ export default function PWAInstallsPage({ user }: any) {
             </div>
           </div>
         )}
+
+        {/* Top sources */}
+        {sources?.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold mb-3">Top Sources (UTM/Referrer)</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500">
+                    <th className="px-3 py-2">Source</th>
+                    <th className="px-3 py-2">Devices</th>
+                    <th className="px-3 py-2">Installs</th>
+                    <th className="px-3 py-2">Conversion</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {sources.map((s, idx) => (
+                    <tr key={idx} className="text-sm">
+                      <td className="px-3 py-2 text-gray-800">{s.label}</td>
+                      <td className="px-3 py-2 text-gray-600">{s.devices}</td>
+                      <td className="px-3 py-2 text-gray-600">{s.installs}</td>
+                      <td className="px-3 py-2 text-gray-600">{s.conversion}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </ModernLayout>
   )
@@ -197,6 +271,31 @@ function Card({ title, value, subtitle }: { title: string; value: number; subtit
       <div style={{ fontSize: 12, color: '#6b7280' }}>{title}</div>
       <div style={{ fontSize: 28, fontWeight: 800 }}>{value}</div>
       {subtitle && <div style={{ fontSize: 12, color: '#6b7280' }}>{subtitle}</div>}
+    </div>
+  )
+}
+
+function MiniLine({ labels, a, b, aLabel, bLabel }: { labels: string[]; a: number[]; b: number[]; aLabel: string; bLabel: string }) {
+  const n = Math.max(a.length, b.length)
+  if (!n) return null
+  const width = 600
+  const height = 120
+  const maxVal = Math.max(1, ...a, ...b)
+  const points = (arr: number[]) => arr.map((v, i) => {
+    const x = n === 1 ? 0 : i * (width / (n - 1))
+    const y = height - (v / maxVal) * (height - 10) - 5
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-32">
+        <polyline fill="none" stroke="#8B5CF6" strokeWidth="2" points={points(a)} />
+        <polyline fill="none" stroke="#10B981" strokeWidth="2" points={points(b)} />
+      </svg>
+      <div className="flex items-center gap-4 text-xs text-gray-600">
+        <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-purple-500"></span>{aLabel}</div>
+        <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-emerald-500"></span>{bLabel}</div>
+      </div>
     </div>
   )
 }
