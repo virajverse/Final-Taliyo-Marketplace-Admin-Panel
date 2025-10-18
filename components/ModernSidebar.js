@@ -55,6 +55,12 @@ const ModernSidebar = ({ isOpen, onClose }) => {
       description: 'Performance Metrics'
     },
     { 
+      name: 'PWA Installs', 
+      href: '/pwa-installs', 
+      icon: BarChart3,
+      description: 'PWA device & installs'
+    },
+    { 
       name: 'Upload Data', 
       href: '/upload', 
       icon: Upload,
