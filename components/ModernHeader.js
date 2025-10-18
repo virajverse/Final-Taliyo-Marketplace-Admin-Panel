@@ -69,6 +69,28 @@ const ModernHeader = ({ user, onMenuClick }) => {
   }, [])
 
   useEffect(() => {
+    const onStorage = (e) => {
+      try {
+        if (e.key === 'theme') {
+          const next = e.newValue || 'light'
+          setTheme(next)
+          if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('dark', next === 'dark')
+          }
+        }
+      } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', onStorage)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', onStorage)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const channel = supabase
       .channel('admin_header_rt')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, (payload) => {
@@ -88,6 +110,18 @@ const ModernHeader = ({ user, onMenuClick }) => {
           time: new Date().toLocaleTimeString(),
           unread: true
         }, ...(prev || [])].slice(0, 20)))
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const row = payload?.new || {}
+        if (row && (row.user_id === null || typeof row.user_id === 'undefined')) {
+          setNotifications(prev => ([{
+            id: row.id,
+            title: row.title || 'Notification',
+            message: row.message || '',
+            time: row.created_at ? new Date(row.created_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
+            unread: true
+          }, ...(prev || [])].slice(0, 20)))
+        }
       })
       .subscribe()
 
