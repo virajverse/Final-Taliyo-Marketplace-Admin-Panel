@@ -31,8 +31,10 @@ const Notifications = ({ user }) => {
   const [newNotif, setNewNotif] = useState({ title: '', message: '', recipients: 'all', type: 'info', channels: ['email'], scheduled_at: '' })
 
   const [showEmail, setShowEmail] = useState(false)
-  const [emailForm, setEmailForm] = useState({ from: (ENV.FROM_EMAIL) || 'noreply@yourdomain.com', toText: '', subject: '', message: '' })
+  const [emailForm, setEmailForm] = useState({ from: (ENV.FROM_EMAIL) || 'noreply@yourdomain.com', toText: '', ccText: '', bccText: '', subject: '', message: '', attachments: [] })
   const [emailSending, setEmailSending] = useState(false)
+  const [showCc, setShowCc] = useState(false)
+  const [showBcc, setShowBcc] = useState(false)
 
   const fromAliases = [
     ENV.FROM_EMAIL,
@@ -127,7 +129,9 @@ const Notifications = ({ user }) => {
     setEmailSending(true)
     try {
       const to = parseList(emailForm.toText)
-      await emailService.sendEmail({ from: emailForm.from, to, subject: emailForm.subject, html: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`, text: emailForm.message || '' })
+      const cc = parseList(emailForm.ccText)
+      const bcc = parseList(emailForm.bccText)
+      await emailService.sendEmail({ from: emailForm.from, to, cc, bcc, subject: emailForm.subject, html: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`, text: emailForm.message || '', attachments: emailForm.attachments })
       try {
         await fetch('/api/email-logs', {
           method: 'POST',
@@ -135,6 +139,8 @@ const Notifications = ({ user }) => {
           body: JSON.stringify({
             from_email: emailForm.from,
             to_emails: to,
+            cc_emails: cc,
+            bcc_emails: bcc,
             subject: emailForm.subject,
             text_content: emailForm.message || '',
             html_content: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`
@@ -142,7 +148,7 @@ const Notifications = ({ user }) => {
         })
       } catch {}
       setShowEmail(false)
-      setEmailForm({ from: emailForm.from, toText: '', subject: '', message: '' })
+      setEmailForm({ from: emailForm.from, toText: '', ccText: '', bccText: '', subject: '', message: '', attachments: [] })
       loadEmails()
     } catch (err) {
       alert(err?.message || 'Email send failed')
@@ -288,7 +294,23 @@ const Notifications = ({ user }) => {
                 <div>
                   <label className="text-sm text-gray-700">To (comma/space separated)</label>
                   <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.toText} onChange={e=>setEmailForm(v=>({...v,toText:e.target.value}))} placeholder="user1@ex.com user2@ex.com" />
+                  <div className="mt-2 text-xs text-blue-600 flex gap-3">
+                    <button type="button" onClick={()=>setShowCc(s=>!s)} className="hover:underline">Cc</button>
+                    <button type="button" onClick={()=>setShowBcc(s=>!s)} className="hover:underline">Bcc</button>
+                  </div>
                 </div>
+                {showCc && (
+                  <div>
+                    <label className="text-sm text-gray-700">Cc</label>
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.ccText} onChange={e=>setEmailForm(v=>({...v,ccText:e.target.value}))} placeholder="cc1@ex.com cc2@ex.com" />
+                  </div>
+                )}
+                {showBcc && (
+                  <div>
+                    <label className="text-sm text-gray-700">Bcc</label>
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.bccText} onChange={e=>setEmailForm(v=>({...v,bccText:e.target.value}))} placeholder="bcc1@ex.com bcc2@ex.com" />
+                  </div>
+                )}
                 <div>
                   <label className="text-sm text-gray-700">Subject</label>
                   <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.subject} onChange={e=>setEmailForm(v=>({...v,subject:e.target.value}))} required />
@@ -296,6 +318,15 @@ const Notifications = ({ user }) => {
                 <div>
                   <label className="text-sm text-gray-700">Message</label>
                   <textarea className="mt-1 w-full border rounded-lg px-3 py-2" rows={5} value={emailForm.message} onChange={e=>setEmailForm(v=>({...v,message:e.target.value}))} />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Attachments</label>
+                  <input type="file" multiple className="mt-1 w-full" onChange={async (e)=>{
+                    const files = Array.from(e.target.files || [])
+                    const toB64 = (file) => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve({ filename: file.name, content_base64: String(r.result).split(',')[1], contentType: file.type || 'application/octet-stream' }); r.onerror=reject; r.readAsDataURL(file) })
+                    const list = await Promise.all(files.map(toB64))
+                    setEmailForm(v=>({...v,attachments:list}))
+                  }} />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button type="button" onClick={()=>setShowEmail(false)} className="px-3 py-2 rounded-lg border" disabled={emailSending}>Cancel</button>

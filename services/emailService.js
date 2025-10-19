@@ -42,9 +42,32 @@ class EmailService {
   async sendEmail(emailData) {
     this.validateEmailData(emailData)
     const isDev = isDevRuntime
-    if (this.useSupabaseEdgeFunction) return await this.sendEmailViaSupabase(emailData)
-    if (!isDev) return await this.sendEmailViaSMTP(emailData)
-    return { success: true, simulated: true }
+    // Prefer configured path, but fall back if it fails and alternative is available
+    if (this.useSupabaseEdgeFunction) {
+      try {
+        return await this.sendEmailViaSupabase(emailData)
+      } catch (e) {
+        // Fallback to SMTP if configured
+        const hasSmtp = !!(this.smtpConfig.host && this.smtpConfig.user && this.smtpConfig.pass)
+        if (hasSmtp && !isDev) {
+          return await this.sendEmailViaSMTP(emailData)
+        }
+        throw e
+      }
+    } else {
+      try {
+        if (!isDev) return await this.sendEmailViaSMTP(emailData)
+        // In dev, if SMTP is not configured, simulate success
+        return { success: true, simulated: true }
+      } catch (e) {
+        // Fallback to Supabase function if enabled in env
+        try {
+          return await this.sendEmailViaSupabase(emailData)
+        } catch {
+          throw e
+        }
+      }
+    }
   }
 
   validateEmailData(emailData) {

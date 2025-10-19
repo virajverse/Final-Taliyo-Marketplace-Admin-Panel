@@ -49,6 +49,20 @@ function resolveFromAddress(requested) {
 async function sendWithResend(emailData) {
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
   if (!resendApiKey) throw new Error('Resend API key not configured')
+  // Normalize attachments for Resend API
+  let attachments = undefined
+  if (Array.isArray(emailData.attachments)) {
+    const list = []
+    for (const a of emailData.attachments) {
+      if (!a) continue
+      if (a.content_base64) {
+        list.push({ filename: a.filename || 'attachment', content: a.content_base64 })
+      } else if (a.content) {
+        list.push({ filename: a.filename || 'attachment', content: a.content })
+      }
+    }
+    if (list.length) attachments = list
+  }
   const payload = {
     from: resolveFromAddress(emailData.from),
     to: Array.isArray(emailData.to) ? emailData.to : (emailData.to ? [emailData.to] : undefined),
@@ -58,7 +72,7 @@ async function sendWithResend(emailData) {
     html: emailData.html,
     text: emailData.text,
     reply_to: emailData.replyTo,
-    attachments: emailData.attachments
+    attachments
   }
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -74,9 +88,10 @@ Deno.serve(async (req) => {
   const cors = getCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Missing or invalid authorization header' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } })
+    const authHeader = req.headers.get('Authorization') || ''
+    const apiKeyHeader = req.headers.get('apikey') || req.headers.get('x-api-key') || ''
+    if (!authHeader && !apiKeyHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } })
     }
     const emailData = await req.json()
     const hasTo = !!emailData.to && (Array.isArray(emailData.to) ? emailData.to.length > 0 : true)
