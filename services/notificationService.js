@@ -240,13 +240,14 @@ class NotificationService {
 
   async getCampaigns(filters = {}) {
     try {
-      let query = supabase.from('campaigns').select('*').order('created_at', { ascending: false })
-      if (filters.status) query = query.eq('status', filters.status)
-      if (filters.type) query = query.eq('type', filters.type)
-      if (filters.search) query = query.or(`name.ilike.%${filters.search}%,subject.ilike.%${filters.search}%`)
-      const { data, error } = await query
-      if (error) throw error
-      return data || []
+      const params = new URLSearchParams()
+      if (filters.status) params.set('status', String(filters.status))
+      if (filters.type) params.set('type', String(filters.type))
+      if (filters.search) params.set('search', String(filters.search))
+      const res = await fetch(`/api/campaigns${params.toString() ? `?${params.toString()}` : ''}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to fetch campaigns')
+      return Array.isArray(json) ? json : []
     } catch (error) {
       console.error('Get campaigns error:', error)
       throw new Error(error.message || 'Failed to fetch campaigns')
@@ -254,20 +255,31 @@ class NotificationService {
   }
 
   async createCampaign(campaignData) {
-    const { data, error } = await supabase.from('campaigns').insert([{ ...campaignData }]).select().single()
-    if (error) throw error
-    return data
+    const res = await fetch('/api/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(campaignData)
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json?.error || 'Failed to create campaign')
+    return json
   }
 
   async updateCampaign(id, updates) {
-    const { data, error } = await supabase.from('campaigns').update(updates).eq('id', id).select().single()
-    if (error) throw error
-    return data
+    const res = await fetch(`/api/campaigns/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json?.error || 'Failed to update campaign')
+    return json
   }
 
   async deleteCampaign(id) {
-    const { error } = await supabase.from('campaigns').delete().eq('id', id)
-    if (error) throw error
+    const res = await fetch(`/api/campaigns/${id}`, { method: 'DELETE' })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.error || 'Failed to delete campaign')
     return true
   }
 }
