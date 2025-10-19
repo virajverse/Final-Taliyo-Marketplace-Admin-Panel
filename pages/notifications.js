@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Mail, Bell, Plus, Trash2, Send, Search, Settings } from 'lucide-react'
 import notificationAPI from '../services/notificationServiceWrapper'
 import emailService from '../services/emailService'
@@ -35,6 +35,7 @@ const Notifications = ({ user }) => {
   const [emailSending, setEmailSending] = useState(false)
   const [showCc, setShowCc] = useState(false)
   const [showBcc, setShowBcc] = useState(false)
+  const fileRef = useRef(null)
 
   const fromAliases = [
     ENV.FROM_EMAIL,
@@ -43,6 +44,13 @@ const Notifications = ({ user }) => {
     ENV.RESEND_FROM_NEWUSER
   ].filter(Boolean)
   const aliasLookup = useMemo(() => new Set(fromAliases.map(a => a.toLowerCase())), [fromAliases.join(',')])
+
+  useEffect(() => {
+    if (!showEmail) return
+    if (fromAliases.length > 0 && (!emailForm.from || !fromAliases.includes(emailForm.from))) {
+      setEmailForm(v => ({ ...v, from: fromAliases[0] }))
+    }
+  }, [showEmail, fromAliases])
 
   const parseList = (text) => (text || '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
 
@@ -132,21 +140,24 @@ const Notifications = ({ user }) => {
       const cc = parseList(emailForm.ccText)
       const bcc = parseList(emailForm.bccText)
       await emailService.sendEmail({ from: emailForm.from, to, cc, bcc, subject: emailForm.subject, html: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`, text: emailForm.message || '', attachments: emailForm.attachments })
-      try {
-        await fetch('/api/email-logs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from_email: emailForm.from,
-            to_emails: to,
-            cc_emails: cc,
-            bcc_emails: bcc,
-            subject: emailForm.subject,
-            text_content: emailForm.message || '',
-            html_content: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`
+      // If using Edge Function, it logs itself to email_logs; avoid duplicate log here
+      if (!ENV.USE_SUPABASE_EMAIL) {
+        try {
+          await fetch('/api/email-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from_email: emailForm.from,
+              to_emails: to,
+              cc_emails: cc,
+              bcc_emails: bcc,
+              subject: emailForm.subject,
+              text_content: emailForm.message || '',
+              html_content: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`
+            })
           })
-        })
-      } catch {}
+        } catch {}
+      }
       setShowEmail(false)
       setEmailForm({ from: emailForm.from, toText: '', ccText: '', bccText: '', subject: '', message: '', attachments: [] })
       loadEmails()
@@ -289,7 +300,18 @@ const Notifications = ({ user }) => {
               <form onSubmit={sendQuickEmail} className="space-y-3">
                 <div>
                   <label className="text-sm text-gray-700">From</label>
-                  <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.from} onChange={e=>setEmailForm(v=>({...v,from:e.target.value}))} placeholder="noreply@yourdomain.com" />
+                  {fromAliases.length > 0 ? (
+                    <>
+                      <select className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.from || fromAliases[0]} onChange={e=>setEmailForm(v=>({...v,from:e.target.value}))}>
+                        {fromAliases.map((a, idx) => (
+                          <option key={idx} value={a}>{a}</option>
+                        ))}
+                      </select>
+                      <div className="text-xs text-gray-500 mt-1">Only allowed aliases will work (configured in Supabase function secrets).</div>
+                    </>
+                  ) : (
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" value={emailForm.from} onChange={e=>setEmailForm(v=>({...v,from:e.target.value}))} placeholder="noreply@yourdomain.com" />
+                  )}
                 </div>
                 <div>
                   <label className="text-sm text-gray-700">To (comma/space separated)</label>
@@ -320,13 +342,16 @@ const Notifications = ({ user }) => {
                   <textarea className="mt-1 w-full border rounded-lg px-3 py-2" rows={5} value={emailForm.message} onChange={e=>setEmailForm(v=>({...v,message:e.target.value}))} />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Attachments</label>
-                  <input type="file" multiple className="mt-1 w-full" onChange={async (e)=>{
+                  <input ref={fileRef} type="file" multiple className="hidden" onChange={async (e)=>{
                     const files = Array.from(e.target.files || [])
                     const toB64 = (file) => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve({ filename: file.name, content_base64: String(r.result).split(',')[1], contentType: file.type || 'application/octet-stream' }); r.onerror=reject; r.readAsDataURL(file) })
                     const list = await Promise.all(files.map(toB64))
                     setEmailForm(v=>({...v,attachments:list}))
                   }} />
+                  <button type="button" onClick={()=>fileRef.current?.click()} className="text-sm text-blue-600 hover:underline">Attach</button>
+                  {emailForm.attachments?.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">{emailForm.attachments.length} file(s) attached</div>
+                  )}
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button type="button" onClick={()=>setShowEmail(false)} className="px-3 py-2 rounded-lg border" disabled={emailSending}>Cancel</button>
