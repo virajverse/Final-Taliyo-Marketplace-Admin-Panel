@@ -9,6 +9,7 @@ const API_FUNNEL = APP_BASE + '/api/pwa-installs/funnel'
 const API_LATEST = APP_BASE + '/api/pwa-installs/latest'
 const API_FUNNEL_PLATFORM = APP_BASE + '/api/pwa-installs/funnel-platform'
 const API_SOURCES = APP_BASE + '/api/pwa-installs/sources'
+const API_USERS = APP_BASE + '/api/pwa-installs/users'
 
 type Stats = {
   devices_total: number
@@ -32,6 +33,8 @@ export default function PWAInstallsPage({ user }: any) {
   const [series, setSeries] = useState<{ labels: string[], first_open: number[], appinstalled: number[] } | null>(null)
   const [platformFunnel, setPlatformFunnel] = useState<{ by_platform: Record<string, { impressions: number, prompted: number, accepted: number, first_open: number }> } | null>(null)
   const [sources, setSources] = useState<Array<{ label: string, devices: number, installs: number, conversion: number }>>([])
+  const [usersInstalled, setUsersInstalled] = useState<Array<{ id: string, name: string | null, phone: string | null, avatar_url: string | null, email: string | null, first_open_at: string }>>([])
+  const [usersNotInstalled, setUsersNotInstalled] = useState<Array<{ id: string, name: string | null, phone: string | null, avatar_url: string | null, created_at: string }>>([])
 
   useEffect(() => {
     let on = true
@@ -67,13 +70,14 @@ export default function PWAInstallsPage({ user }: any) {
     const q = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
     ;(async () => {
       try {
-        const [bd, fn, lt, sr, fp, sc] = await Promise.all([
+        const [bd, fn, lt, sr, fp, sc, us] = await Promise.all([
           fetch(API_BREAKDOWN + q).then(r => r.json()),
           fetch(API_FUNNEL + q).then(r => r.json()),
           fetch(API_LATEST + q + '&limit=20').then(r => r.json()),
           fetch(API_SERIES + q).then(r => r.json()),
           fetch(API_FUNNEL_PLATFORM + q).then(r => r.json()),
           fetch(API_SOURCES + q).then(r => r.json()),
+          fetch(API_USERS + q).then(r => r.json()),
         ])
         if (!alive) return
         if (bd?.error) throw new Error(bd.error)
@@ -82,12 +86,15 @@ export default function PWAInstallsPage({ user }: any) {
         if (sr?.error) throw new Error(sr.error)
         if (fp?.error) throw new Error(fp.error)
         if (sc?.error) throw new Error(sc.error)
+        if (us?.error) throw new Error(us.error)
         setBreakdown({ platform: bd.platform || {}, browser: bd.browser || {} })
         setFunnel(fn)
         setLatest(lt.rows || [])
         setSeries({ labels: sr.labels || [], first_open: sr.first_open || [], appinstalled: sr.appinstalled || [] })
         setPlatformFunnel({ by_platform: fp.by_platform || {} })
         setSources(sc.rows || [])
+        setUsersInstalled(Array.isArray(us.installed) ? us.installed : [])
+        setUsersNotInstalled(Array.isArray(us.not_installed) ? us.not_installed : [])
       } catch (e: any) {
         setErr(e?.message || 'Failed to load breakdown')
       }
@@ -260,6 +267,72 @@ export default function PWAInstallsPage({ user }: any) {
             </div>
           </div>
         )}
+
+        {/* User-level mapping */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Users by Install Status</h3>
+            <div className="text-sm text-gray-500">
+              Installed: {usersInstalled.length} · Not Installed: {usersNotInstalled.length}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-medium mb-2 text-gray-700">Installed (First Open)</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500">
+                      <th className="px-3 py-2">User</th>
+                      <th className="px-3 py-2">Email</th>
+                      <th className="px-3 py-2">Phone</th>
+                      <th className="px-3 py-2">First Open</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {usersInstalled.slice(0, 20).map((u, idx) => (
+                      <tr key={idx} className="text-sm">
+                        <td className="px-3 py-2 text-gray-800">{u.name || u.id.slice(0,8)}</td>
+                        <td className="px-3 py-2 text-gray-600">{u.email || '-'}</td>
+                        <td className="px-3 py-2 text-gray-600">{u.phone || '-'}</td>
+                        <td className="px-3 py-2 text-gray-600">{new Date(u.first_open_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {usersInstalled.length > 20 && (
+                  <div className="text-xs text-gray-500 mt-2">Showing 20 of {usersInstalled.length}</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium mb-2 text-gray-700">Not Installed</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500">
+                      <th className="px-3 py-2">User</th>
+                      <th className="px-3 py-2">Phone</th>
+                      <th className="px-3 py-2">Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {usersNotInstalled.slice(0, 20).map((u, idx) => (
+                      <tr key={idx} className="text-sm">
+                        <td className="px-3 py-2 text-gray-800">{u.name || u.id.slice(0,8)}</td>
+                        <td className="px-3 py-2 text-gray-600">{u.phone || '-'}</td>
+                        <td className="px-3 py-2 text-gray-600">{new Date(u.created_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {usersNotInstalled.length > 20 && (
+                  <div className="text-xs text-gray-500 mt-2">Showing 20 of {usersNotInstalled.length}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </ModernLayout>
   )
