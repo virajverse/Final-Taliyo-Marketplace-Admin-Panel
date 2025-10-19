@@ -10,14 +10,15 @@ class NotificationService {
         const raw = localStorage.getItem('dev.notifications') || '[]'
         try { return JSON.parse(raw) } catch { return [] }
       }
-      let query = supabase.from('notifications').select('*').order('created_at', { ascending: false })
-      if (filters.status) query = query.eq('status', filters.status)
-      if (filters.type) query = query.eq('type', filters.type)
-      if (filters.search) query = query.or(`title.ilike.%${filters.search}%,message.ilike.%${filters.search}%`)
-      if (filters.createdBy) query = query.eq('created_by', filters.createdBy)
-      const { data, error } = await query
-      if (error) throw error
-      return data || []
+      const params = new URLSearchParams()
+      if (filters.status) params.set('status', String(filters.status))
+      if (filters.type) params.set('type', String(filters.type))
+      if (filters.search) params.set('search', String(filters.search))
+      if (filters.createdBy) params.set('createdBy', String(filters.createdBy))
+      const res = await fetch(`/api/notifications${params.toString() ? `?${params.toString()}` : ''}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to fetch notifications')
+      return Array.isArray(json) ? json : []
     } catch (error) {
       console.error('Get notifications error:', error)
       throw new Error(error.message || 'Failed to fetch notifications')
@@ -50,20 +51,16 @@ class NotificationService {
       }
       let data, error
       try {
-        const resp1 = await supabase.from('notifications').insert([{ title: notificationData.title, message: notificationData.message }]).select('id,title,created_at').single()
-        data = resp1.data; error = resp1.error
-        if (!error) data = { ...data, message: notificationData.message }
-      } catch (e) { error = e }
-      if (error) {
-        try {
-          const resp2 = await supabase.from('notifications').insert([{ title: notificationData.title, body: notificationData.message }]).select('id,title,created_at').single()
-          data = resp2.data; error = resp2.error
-          if (!error) data = { ...data, message: notificationData.message }
-        } catch (e2) { error = e2 }
-      }
-      if (error) {
-        const resp3 = await supabase.from('notifications').insert([{ title: notificationData.title }]).select('id,title,created_at').single()
-        data = resp3.data; error = resp3.error
+        const res = await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notificationData)
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || 'Failed to create notification')
+        data = json
+      } catch (e) {
+        error = e
       }
       if (error) throw error
       if (!notificationData.scheduled_at) await this.sendNotification(data.id, notificationData)
@@ -82,9 +79,14 @@ class NotificationService {
         const idx = list.findIndex(n => n.id === id); if (idx === -1) throw new Error('Not found');
         list[idx] = { ...list[idx], ...updates }; localStorage.setItem('dev.notifications', JSON.stringify(list)); return list[idx];
       }
-      const { data, error } = await supabase.from('notifications').update(updates).eq('id', id).select().single()
-      if (error) throw error
-      return data
+      const res = await fetch(`/api/notifications/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to update notification')
+      return json
     } catch (error) {
       console.error('Update notification error:', error)
       throw new Error(error.message || 'Failed to update notification')
@@ -98,8 +100,9 @@ class NotificationService {
         let list; try { list = JSON.parse(raw); } catch { list = []; }
         const next = list.filter(n => n.id !== id); localStorage.setItem('dev.notifications', JSON.stringify(next)); return true;
       }
-      const { error } = await supabase.from('notifications').delete().eq('id', id)
-      if (error) throw error
+      const res = await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete notification')
       return true
     } catch (error) {
       console.error('Delete notification error:', error)

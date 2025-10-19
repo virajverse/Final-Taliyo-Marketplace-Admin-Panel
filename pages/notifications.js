@@ -62,9 +62,10 @@ const Notifications = ({ user }) => {
 
   const loadEmails = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('email_logs').select('*').order('sent_at', { ascending: false })
-      if (error) throw error
-      const mapped = (data || []).map(x => ({ ...x, status: aliasLookup.has((x.from_email || '').toLowerCase()) ? 'sent' : (x.status || 'sent') }))
+      const res = await fetch('/api/email-logs')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Failed to load email logs')
+      const mapped = (Array.isArray(data) ? data : []).map(x => ({ ...x, status: aliasLookup.has((x.from_email || '').toLowerCase()) ? 'sent' : (x.status || 'sent') }))
       setEmailLogs(mapped)
     } catch (e) {
       console.warn('email logs load error:', e?.message || e)
@@ -128,8 +129,17 @@ const Notifications = ({ user }) => {
       const to = parseList(emailForm.toText)
       await emailService.sendEmail({ from: emailForm.from, to, subject: emailForm.subject, html: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`, text: emailForm.message || '' })
       try {
-        const { data: userData } = await supabase.auth.getUser()
-        await supabase.from('email_logs').insert([{ from_email: emailForm.from, to_emails: to, subject: emailForm.subject, text_content: emailForm.message || '', html_content: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`, sent_by: userData?.user?.id || null }])
+        await fetch('/api/email-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from_email: emailForm.from,
+            to_emails: to,
+            subject: emailForm.subject,
+            text_content: emailForm.message || '',
+            html_content: `<div>${(emailForm.message || '').replace(/\n/g, '<br/>')}</div>`
+          })
+        })
       } catch {}
       setShowEmail(false)
       setEmailForm({ from: emailForm.from, toText: '', subject: '', message: '' })
