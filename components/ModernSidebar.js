@@ -91,6 +91,12 @@ const ModernSidebar = ({ isOpen, onClose }) => {
       description: 'Banners Impressions & CTR'
     },
     { 
+      name: 'Notifications', 
+      href: '/notifications', 
+      icon: Bell,
+      description: 'Send and review notifications'
+    },
+    { 
       name: 'Admins', 
       href: '/manage-admins', 
       icon: Users,

@@ -10,6 +10,7 @@ import {
   Package,
   MessageSquare,
   Eye,
+  Bell,
   FolderOpen
 } from 'lucide-react'
 
@@ -25,6 +26,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Manage Items', href: '/manage-items', icon: Package },
     { name: 'Manage Admins', href: '/manage-admins', icon: Users },
     { name: 'Analytics', href: '/analytics', icon: Eye },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
