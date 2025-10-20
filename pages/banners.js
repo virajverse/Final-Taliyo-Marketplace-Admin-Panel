@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ModernLayout from '../components/ModernLayout';
 import { useRouter } from 'next/router';
-import { checkSession } from '../lib/simpleAuth';
 
  
 
-export default function Banners() {
+export default function Banners({ user }) {
   const router = useRouter();
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +13,10 @@ export default function Banners() {
   const [savingLimit, setSavingLimit] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const sliderRef = useRef(null);
+
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
 
   const scrollByCard = (dir) => {
     try {
@@ -37,11 +40,6 @@ export default function Banners() {
   }
 
   useEffect(() => {
-    const session = checkSession();
-    if (!session) {
-      router.push('/login');
-      return;
-    }
     fetchAll();
   }, [router]);
 
@@ -76,7 +74,7 @@ export default function Banners() {
       const order = arr.map(b => b.id)
       const res = await fetch('/api/admin/banners/reorder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ order })
       })
       if (res.status === 401) {
@@ -129,7 +127,7 @@ export default function Banners() {
       const method = banner.id ? 'PATCH' : 'POST'
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify(clean)
       })
       if (res.status === 401) { router.push('/login?error=unauthorized'); return }
@@ -145,7 +143,7 @@ export default function Banners() {
   const deleteBanner = async (id) => {
     if (!confirm('Delete this banner?')) return;
     try {
-      const res = await fetch(`/api/admin/banners/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/banners/${id}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       if (res.status === 401) { router.push('/login?error=unauthorized'); return }
       if (!res.ok) throw new Error('failed')
       fetchAll()
@@ -158,7 +156,7 @@ export default function Banners() {
     try {
       const res = await fetch(`/api/admin/banners/${b.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ active: !b.active })
       })
       if (res.status === 401) { router.push('/login?error=unauthorized'); return }
@@ -189,7 +187,7 @@ export default function Banners() {
       const value = Math.max(1, Number(limit) || 3)
       const res = await fetch('/api/admin/banners/limit', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ value })
       })
       if (res.status === 401) { router.push('/login?error=unauthorized'); return }
@@ -225,7 +223,7 @@ export default function Banners() {
       const filename = file?.name || 'upload.dat'
       const res = await fetch(`/api/admin/banners/upload?filename=${encodeURIComponent(filename)}`, {
         method: 'POST',
-        headers: { 'Content-Type': file?.type || 'application/octet-stream' },
+        headers: { 'Content-Type': file?.type || 'application/octet-stream', 'x-csrf-token': getCsrf() },
         body: file,
       })
       if (res.status === 401) {
@@ -367,7 +365,7 @@ export default function Banners() {
   };
 
   return (
-    <ModernLayout user={{ email: 'admin@taliyo.com' }}>
+    <ModernLayout user={user}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>

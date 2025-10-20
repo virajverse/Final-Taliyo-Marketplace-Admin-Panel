@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import ModernLayout from '../components/ModernLayout'
 import { 
   BarChart3, 
@@ -14,7 +13,6 @@ import {
   Clock,
   Target
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
 
 // Import simple stats component (no recharts)
 import { SimplePerformanceStats } from '../components/SimpleStats'
@@ -42,245 +40,34 @@ const Dashboard = ({ user }) => {
     }
   }, [user])
 
-  useEffect(() => {
-    if (!user) return
-
-    const channel = supabase
-      .channel('admin_dashboard_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_clicks' }, () => {
-        loadDashboardData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => {
-        loadDashboardData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, () => {
-        loadDashboardData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        loadDashboardData()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user])
+  // Realtime channel removed for performance; rely on short polling with cached API
 
   useEffect(() => {
     if (!user) return
     const id = setInterval(() => {
       loadDashboardData()
-    }, 10000)
+    }, 30000)
     return () => clearInterval(id)
   }, [user])
 
   const loadDashboardData = async () => {
     try {
-      // Try server metrics API (uses service role key) for full, real data
-      try {
-        const res = await fetch('/api/admin/metrics')
-        if (res.ok) {
-          const m = await res.json()
-          setStats({
-            totalItems: m.totalItems || 0,
-            totalClicks: m.totalClicks || 0,
-            totalAdmins: m.totalAdmins || 0,
-            recentClicks: m.recentClicks || 0,
-            totalRevenue: m.totalRevenue || 0,
-            bookingsCount: m.bookingsCount || 0,
-            conversionRate: m.conversionRate || 0
-          })
-          setThisMonthRevenue(m.thisMonthRevenue || 0)
-          setRecentActivity(m.recentActivity || [])
-          setPerformanceData(m.performanceData || [])
-          setCategoryData(m.categoryData || [])
-          setAuditData([])
-          return
-        }
-      } catch (e) {
-        // Fallback to client-side queries below
-      }
-
-      // Get total services count (with error handling)
-      let itemsCount = 0
-      try {
-        const { count } = await supabase
-          .from('services')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true)
-        itemsCount = count || 0
-      } catch (error) {
-        console.log('Services table not accessible:', error.message)
-      }
-
-      // Get total clicks count (with error handling)
-      let clicksCount = 0
-      try {
-        const { count } = await supabase
-          .from('order_clicks')
-          .select('*', { count: 'exact', head: true })
-        clicksCount = count || 0
-      } catch (error) {
-        console.log('Order_clicks table not accessible:', error.message)
-      }
-
-      // Get total admins count (with error handling)
-      let adminsCount = 2
-      try {
-        const { count } = await supabase
-          .from('admins')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true)
-        adminsCount = count || 2
-      } catch (error) {
-        console.log('Admins table not accessible:', error.message)
-      }
-
-      // Get recent clicks (with error handling)
-      let recentClicksCount = 0
-      try {
-        const yesterday = new Date()
-        yesterday.setHours(yesterday.getHours() - 24)
-        
-        const { count } = await supabase
-          .from('order_clicks')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', yesterday.toISOString())
-        recentClicksCount = count || 0
-      } catch (error) {
-        console.log('Recent clicks not accessible:', error.message)
-      }
-
-      // Get bookings count (real)
-      let bookingsCount = 0
-      try {
-        const { count } = await supabase
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-        bookingsCount = count || 0
-      } catch (error) {
-        console.log('Bookings table not accessible:', error.message)
-      }
-
-      // Revenue (sum of confirmed/completed bookings)
-      let totalRevenueVal = 0
-      let thisMonthRevenueVal = 0
-      try {
-        const { data: revRows } = await supabase
-          .from('bookings')
-          .select('final_price,status,created_at')
-          .in('status', ['confirmed', 'completed'])
-          .not('final_price', 'is', null)
-
-        totalRevenueVal = (revRows || []).reduce((sum, r) => sum + Number(r.final_price || 0), 0)
-
-        const monthStart = new Date()
-        monthStart.setDate(1)
-        monthStart.setHours(0, 0, 0, 0)
-        thisMonthRevenueVal = (revRows || []).reduce((sum, r) => {
-          const created = new Date(r.created_at)
-          return created >= monthStart ? sum + Number(r.final_price || 0) : sum
-        }, 0)
-      } catch (error) {
-        console.log('Revenue query failed:', error.message)
-      }
-
-      // Recent activity from real clicks
-      const { data: clicks } = await supabase
-        .from('order_clicks')
-        .select(`
-          *,
-          items (
-            title,
-            type
-          ),
-          services (
-            title
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      const activities = (clicks || []).map(c => ({
-        action: 'Order Click',
-        user: c.user_ip || 'Visitor',
-        target: c.services?.title || c.items?.title || 'Unknown',
-        timestamp: new Date(c.created_at).toLocaleString(),
-        status: 'Success'
-      }))
-
-      // Real performance data: monthly clicks over last 12 months
-      let perfData = []
-      try {
-        const now = new Date()
-        const months = Array.from({ length: 12 }, (_, i) => {
-          const start = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
-          const end = new Date(now.getFullYear(), now.getMonth() - (11 - i) + 1, 1)
-          return { start, end }
-        })
-        const results = await Promise.all(
-          months.map(async ({ start, end }) => {
-            const { count } = await supabase
-              .from('order_clicks')
-              .select('*', { count: 'exact', head: true })
-              .gte('created_at', start.toISOString())
-              .lt('created_at', end.toISOString())
-            return count || 0
-          })
-        )
-        perfData = months.map((m, idx) => ({
-          month: m.start.toLocaleDateString('en-US', { month: 'short' }),
-          growth: results[idx]
-        }))
-      } catch (error) {
-        console.log('Performance data error:', error.message)
-      }
-
-      // Real category distribution from services by category
-      let catData = []
-      try {
-        const { data: cats } = await supabase
-          .from('categories')
-          .select('id,name')
-          .eq('is_active', true)
-
-        const counts = await Promise.all(
-          (cats || []).map(async c => {
-            const { count } = await supabase
-              .from('services')
-              .select('*', { count: 'exact', head: true })
-              .eq('is_active', true)
-              .eq('category_id', c.id)
-            return { name: c.name, count: count || 0 }
-          })
-        )
-        counts.sort((a, b) => b.count - a.count)
-        const top = counts.slice(0, 3)
-        const total = top.reduce((s, r) => s + r.count, 0)
-        const palette = ['#8B5CF6', '#06B6D4', '#10B981']
-        catData = top.length
-          ? top.map((t, i) => ({ name: t.name, value: total ? Math.round((t.count / total) * 100) : 0, color: palette[i % palette.length] }))
-          : [{ name: 'Services', value: 100, color: '#8B5CF6' }]
-      } catch (error) {
-        console.log('Category distribution error:', error.message)
-      }
-
-      const conv = clicksCount > 0 ? ((bookingsCount || 0) / clicksCount) * 100 : 0
-
+      const res = await fetch('/api/admin/metrics')
+      if (!res.ok) throw new Error('metrics_failed')
+      const m = await res.json()
       setStats({
-        totalItems: itemsCount || 0,
-        totalClicks: clicksCount || 0,
-        totalAdmins: adminsCount || 0,
-        recentClicks: recentClicksCount || 0,
-        totalRevenue: totalRevenueVal,
-        bookingsCount: bookingsCount || 0,
-        conversionRate: Number(conv.toFixed(1))
+        totalItems: m.totalItems || 0,
+        totalClicks: m.totalClicks || 0,
+        totalAdmins: m.totalAdmins || 0,
+        recentClicks: m.recentClicks || 0,
+        totalRevenue: m.totalRevenue || 0,
+        bookingsCount: m.bookingsCount || 0,
+        conversionRate: m.conversionRate || 0
       })
-
-      setThisMonthRevenue(thisMonthRevenueVal)
-      setRecentActivity(activities)
-      setPerformanceData(perfData)
-      setCategoryData(catData)
+      setThisMonthRevenue(m.thisMonthRevenue || 0)
+      setRecentActivity(m.recentActivity || [])
+      setPerformanceData(m.performanceData || [])
+      setCategoryData(m.categoryData || [])
       setAuditData([])
     } catch (error) {
       console.error('Error loading dashboard data:', error)

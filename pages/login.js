@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { simpleLogin } from '../lib/simpleAuth'
+// Secure cookie-based auth: client does not store any session in localStorage
 
 const Login = ({ user }) => {
   const [email, setEmail] = useState('')
@@ -29,17 +29,19 @@ const Login = ({ user }) => {
     setError('')
 
     try {
+      const getCsrf = () => {
+        try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+      }
       // Call server auth to set secure admin cookie
       const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ email, password })
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Login failed')
 
-      // Maintain existing UI gating via localStorage session
-      await simpleLogin(email, password)
+      // Cookie has been set by server. Redirect to dashboard.
       router.push('/')
     } catch (error) {
       setError(error.message)

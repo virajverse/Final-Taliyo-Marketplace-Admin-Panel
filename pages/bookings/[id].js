@@ -22,6 +22,10 @@ export default function AdminBookingStatusPage() {
   const [statusDraft, setStatusDraft] = useState('pending')
   const [timelineNote, setTimelineNote] = useState('')
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   const timeline = useMemo(() => {
     try {
       const an = booking?.additional_notes ? JSON.parse(booking.additional_notes) : {}
@@ -62,10 +66,11 @@ export default function AdminBookingStatusPage() {
       setSaving(true)
       const res = await fetch(`/api/admin/bookings/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ status: statusDraft })
       })
       const body = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(body?.error || 'failed')
       setBooking(body.data)
     } catch (e) {
@@ -81,7 +86,7 @@ export default function AdminBookingStatusPage() {
       setSaving(true)
       const res = await fetch(`/api/admin/bookings/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({
           timelineStep: stepObj.step,
           timelineLabel: stepObj.label,
@@ -94,6 +99,7 @@ export default function AdminBookingStatusPage() {
         })
       })
       const body = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(body?.error || 'failed')
       setBooking(body.data)
       setStatusDraft(body.data?.status || statusDraft)

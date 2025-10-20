@@ -45,6 +45,10 @@ const Notifications = ({ user }) => {
   ].filter(Boolean)
   const aliasLookup = useMemo(() => new Set(fromAliases.map(a => a.toLowerCase())), [fromAliases.join(',')])
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   useEffect(() => {
     if (!showEmail) return
     if (fromAliases.length > 0 && (!emailForm.from || !fromAliases.includes(emailForm.from))) {
@@ -145,7 +149,7 @@ const Notifications = ({ user }) => {
         try {
           await fetch('/api/email-logs', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
             body: JSON.stringify({
               from_email: emailForm.from,
               to_emails: to,

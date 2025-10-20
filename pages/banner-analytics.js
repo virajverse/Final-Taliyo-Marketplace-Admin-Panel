@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import ModernLayout from '../components/ModernLayout'
 import { useRouter } from 'next/router'
-import { checkSession } from '../lib/simpleAuth'
 import { BarChart3, Eye, MousePointer, Download, Calendar, Filter } from 'lucide-react'
 
-export default function BannerAnalytics() {
+export default function BannerAnalytics({ user }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState('preset') // preset | custom
@@ -17,11 +16,6 @@ export default function BannerAnalytics() {
   const [LineComp, setLineComp] = useState(null)
 
   useEffect(() => {
-    const session = checkSession()
-    if (!session) {
-      router.push('/login')
-      return
-    }
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
@@ -123,7 +117,7 @@ export default function BannerAnalytics() {
   }
 
   return (
-    <ModernLayout user={{ email: 'admin@taliyo.com' }}>
+    <ModernLayout user={user}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>

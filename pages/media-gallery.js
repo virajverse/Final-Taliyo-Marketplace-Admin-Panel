@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import ModernLayout from '../components/ModernLayout'
 import { useRouter } from 'next/router'
-import { checkSession } from '../lib/simpleAuth'
 
 const bucketOptions = (serviceBucket) => [
   { value: 'banners', label: 'Banners' },
@@ -26,7 +25,7 @@ const formatDate = (value) => {
   }
 }
 
-export default function MediaGalleryPage() {
+export default function MediaGalleryPage({ user }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [bucket, setBucket] = useState('banners')
@@ -40,11 +39,6 @@ export default function MediaGalleryPage() {
   const [viewMode, setViewMode] = useState('grid')
 
   useEffect(() => {
-    const session = checkSession()
-    if (!session) {
-      router.push('/login')
-      return
-    }
     fetchItems(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucket, page])
@@ -90,7 +84,7 @@ export default function MediaGalleryPage() {
   }
 
   return (
-    <ModernLayout user={{ email: 'admin@taliyo.com' }}>
+    <ModernLayout user={user}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>

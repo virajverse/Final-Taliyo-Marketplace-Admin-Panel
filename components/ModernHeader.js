@@ -132,9 +132,11 @@ const ModernHeader = ({ user, onMenuClick }) => {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/admin/auth/logout', { method: 'POST' })
+      const getCsrf = () => {
+        try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+      }
+      await fetch('/api/admin/auth/logout', { method: 'POST', headers: { 'x-csrf-token': getCsrf() } })
     } catch {}
-    localStorage.removeItem('admin_session')
     router.push('/login')
   }
 

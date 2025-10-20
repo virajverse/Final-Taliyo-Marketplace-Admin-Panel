@@ -34,6 +34,10 @@ export default async function handler(req, res) {
 
     const file = files.file
     if (!file) return res.status(400).json({ error: 'missing_file' })
+    const allowed = new Set(['image/jpeg','image/png','image/webp','image/gif'])
+    const maxBytes = 5 * 1024 * 1024
+    if (!allowed.has(file.mimetype || '')) return res.status(415).json({ error: 'unsupported_media_type' })
+    if ((file.size || 0) > maxBytes) return res.status(413).json({ error: 'file_too_large' })
 
     const supabase = getAdminClient()
     const bucket = process.env.SERVICE_IMAGES_BUCKET || 'service-images'

@@ -45,13 +45,18 @@ const ManageCategories = ({ user }) => {
     slug: ''
   })
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   const handleSyncCategories = async () => {
     try {
       setSyncing(true)
       setError('')
       setSuccess('')
-      const res = await fetch('/api/admin/sync-categories', { method: 'POST' })
+      const res = await fetch('/api/admin/sync-categories', { method: 'POST', headers: { 'x-csrf-token': getCsrf() } })
       const data = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(data?.message || 'Sync failed')
       setSuccess(`Categories synced: ${data.created} created, ${data.updated} updated (unique from items: ${data.totalUnique})`)
       await Promise.all([loadCategories(), loadSubcategories()])
@@ -146,10 +151,11 @@ const ManageCategories = ({ user }) => {
         // Update existing category
         const res = await fetch(`/api/admin/categories/${editingCategory.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(categoryData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
         setCategories(categories.map(cat => (
@@ -162,10 +168,11 @@ const ManageCategories = ({ user }) => {
 
         const res = await fetch('/api/admin/categories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(categoryData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
         setCategories([...categories, json.data])
@@ -204,10 +211,11 @@ const ManageCategories = ({ user }) => {
         // Update existing subcategory
         const res = await fetch(`/api/admin/subcategories/${editingSubcategory.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(subcategoryData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
         await loadSubcategories()
@@ -216,10 +224,11 @@ const ManageCategories = ({ user }) => {
         // Create new subcategory
         const res = await fetch('/api/admin/subcategories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(subcategoryData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
         await loadSubcategories()
@@ -268,8 +277,9 @@ const ManageCategories = ({ user }) => {
     }
 
     try {
-      const res = await fetch(`/api/admin/categories/${categoryId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/categories/${categoryId}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setCategories(categories.filter(cat => cat.id !== categoryId))
@@ -287,8 +297,9 @@ const ManageCategories = ({ user }) => {
     }
 
     try {
-      const res = await fetch(`/api/admin/subcategories/${subcategoryId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/subcategories/${subcategoryId}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setSubcategories(subcategories.filter(sub => sub.id !== subcategoryId))
@@ -303,10 +314,11 @@ const ManageCategories = ({ user }) => {
     try {
       const res = await fetch(`/api/admin/categories/${categoryId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ is_active: !currentStatus })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
       setCategories(categories.map(cat => (
@@ -323,10 +335,11 @@ const ManageCategories = ({ user }) => {
     try {
       const res = await fetch(`/api/admin/subcategories/${subcategoryId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ is_active: !currentStatus })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
       setSubcategories(subcategories.map(sub => (

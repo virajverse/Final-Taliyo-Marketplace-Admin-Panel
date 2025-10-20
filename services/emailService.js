@@ -31,8 +31,9 @@ class EmailService {
   }
 
   async sendEmailViaSMTP(emailData) {
+    const getCsrf = () => { try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' } }
     const response = await fetch('/api/send-email', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
       body: JSON.stringify({ ...emailData, smtpConfig: this.smtpConfig })
     })
     if (!response.ok) throw new Error('SMTP service unavailable')

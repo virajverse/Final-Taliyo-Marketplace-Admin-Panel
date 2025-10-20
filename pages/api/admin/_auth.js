@@ -46,7 +46,7 @@ export const setAuthCookie = (res, payload) => {
     httpOnly: true,
     path: '/',
     maxAge: 24 * 60 * 60,
-    sameSite: 'Lax',
+    sameSite: 'Strict',
     secure: process.env.NODE_ENV === 'production'
   })
   res.setHeader('Set-Cookie', cookie)
@@ -57,7 +57,7 @@ export const clearAuthCookie = (res) => {
     httpOnly: true,
     path: '/',
     maxAge: 0,
-    sameSite: 'Lax',
+    sameSite: 'Strict',
     secure: process.env.NODE_ENV === 'production'
   })
   res.setHeader('Set-Cookie', cookie)
@@ -83,6 +83,8 @@ export const requireAdmin = (req, res) => {
     const email = payload?.email
     const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
     if (!email || !adminEmail || email !== adminEmail) throw new Error('unauthorized')
+    // Sliding session: refresh cookie expiry on each verified admin request
+    try { setAuthCookie(res, { email }) } catch {}
     return payload
   } catch (e) {
     res.status(401).json({ error: 'unauthorized' })

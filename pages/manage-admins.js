@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import ModernLayout from '../components/ModernLayout'
 import { 
@@ -23,18 +24,34 @@ const ManageAdmins = ({ user }) => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
+  const fetcher = async (url) => {
+    const res = await fetch(url)
+    if (res.status === 401) { window.location.href = '/login?error=unauthorized'; throw new Error('unauthorized') }
+    const json = await res.json()
+    if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load admins')
+    return json?.data || []
+  }
+
+  const { data: adminsData, error: swrError, isLoading, mutate } = useSWR(user ? '/api/admin/admins' : null, fetcher, { revalidateOnFocus: true })
+
+  useEffect(() => { if (adminsData) { setAdmins(adminsData); } }, [adminsData])
+  useEffect(() => { if (swrError) { setError('Failed to load admin list') } }, [swrError])
+  useEffect(() => { setLoading(!!isLoading) }, [isLoading])
+
   useEffect(() => {
-    if (user) {
-      loadAdmins()
-    }
-  }, [user])
+    if (user) { mutate() }
+  }, [user, mutate])
 
   useEffect(() => {
     if (!user) return
     const channel = supabase
       .channel('admins_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, () => {
-        loadAdmins()
+        mutate()
       })
       .subscribe()
 
@@ -45,9 +62,9 @@ const ManageAdmins = ({ user }) => {
 
   useEffect(() => {
     if (!user) return
-    const id = setInterval(() => loadAdmins(), 10000)
+    const id = setInterval(() => mutate(), 10000)
     return () => clearInterval(id)
-  }, [user])
+  }, [user, mutate])
 
   const loadAdmins = async () => {
     try {
@@ -84,14 +101,16 @@ const ManageAdmins = ({ user }) => {
 
       const res = await fetch('/api/admin/admins', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ email: newAdminEmail.toLowerCase(), is_active: true })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
-      // Update local state
+      // Update local state then revalidate
       setAdmins([...admins, json.data])
+      await mutate()
       setNewAdminEmail('')
       setShowAddForm(false)
       setSuccess('Admin added successfully')
@@ -114,12 +133,14 @@ const ManageAdmins = ({ user }) => {
     }
 
     try {
-      const res = await fetch(`/api/admin/admins/${adminId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/admins/${adminId}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
-      // Update local state
+      // Update local state then revalidate
       setAdmins(admins.filter(admin => admin.id !== adminId))
+      await mutate()
       setSuccess('Admin removed successfully')
     } catch (error) {
       console.error('Error removing admin:', error)
@@ -136,13 +157,14 @@ const ManageAdmins = ({ user }) => {
     try {
       const res = await fetch(`/api/admin/admins/${adminId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ is_active: !currentStatus })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
-      // Update local state
+      // Update local state then revalidate
       setAdmins(admins.map(admin => 
         admin.id === adminId 
           ? json.data
@@ -150,6 +172,7 @@ const ManageAdmins = ({ user }) => {
       ))
 
       setSuccess(`Admin ${!currentStatus ? 'activated' : 'deactivated'} successfully`)
+      await mutate()
     } catch (error) {
       console.error('Error updating admin status:', error)
       setError('Failed to update admin status')

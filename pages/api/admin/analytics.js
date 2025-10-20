@@ -24,13 +24,13 @@ export default async function handler(req, res) {
     })
 
     // Headline metrics
-    const [itemsRes, clicksRes, avgReviewsRes] = await Promise.all([
-      supabase.from('items').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    const [servicesRes, clicksRes, avgReviewsRes] = await Promise.all([
+      supabase.from('services').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('order_clicks').select('*', { count: 'exact', head: true }),
       supabase.from('reviews').select('rating').eq('is_approved', true)
     ])
 
-    const totalItems = itemsRes.count || 0
+    const totalItems = servicesRes.count || 0
     const totalClicks = clicksRes.count || 0
     const avgRating = (avgReviewsRes.data || []).length
       ? Number(((avgReviewsRes.data || []).reduce((s, r) => s + Number(r.rating || 0), 0) / (avgReviewsRes.data || []).length).toFixed(1))
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
         .not('final_price', 'is', null),
       supabase
         .from('bookings')
-        .select('final_price,status,created_at,item_id')
+        .select('final_price,status,created_at,service_id')
         .in('status', ['confirmed', 'completed'])
         .not('final_price', 'is', null)
         .gte('created_at', startOfDay(new Date(Date.now() - (days-1)*24*60*60*1000)).toISOString())
@@ -69,23 +69,25 @@ export default async function handler(req, res) {
     }
     const growthData = dayBuckets.map(d => ({ date: fmtDate(d), revenue: Math.round(revenueByDay.get(d.toDateString()) || 0) }))
 
-    // Category distribution from items.type
-    const defs = [
-      { key: 'service', name: 'Services', color: '#8B5CF6' },
-      { key: 'product', name: 'Products', color: '#06B6D4' },
-      { key: 'package', name: 'Packages', color: '#10B981' }
-    ]
-    const catCounts = []
-    for (const d of defs) {
-      const { count } = await supabase
-        .from('items')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-        .eq('type', d.key)
-      catCounts.push(count || 0)
+    // Category distribution from services by category
+    const [{ data: cats }, { data: svcCats }] = await Promise.all([
+      supabase.from('categories').select('id,name').eq('is_active', true),
+      supabase.from('services').select('category_id').eq('is_active', true)
+    ])
+    const cmap = new Map()
+    for (const r of (svcCats || [])) {
+      const id = r.category_id
+      if (!id) continue
+      cmap.set(id, (cmap.get(id) || 0) + 1)
     }
-    const totalCat = catCounts.reduce((a, b) => a + b, 0)
-    const categoryData = defs.map((d, i) => ({ name: d.name, value: totalCat ? Math.round((catCounts[i]/totalCat)*100) : 0, color: d.color }))
+    const arr = (cats || []).map(c => ({ name: c.name, count: cmap.get(c.id) || 0 }))
+    arr.sort((a, b) => b.count - a.count)
+    const top3 = arr.slice(0, 3)
+    const totalTop = top3.reduce((s, r) => s + r.count, 0)
+    const palette = ['#8B5CF6', '#06B6D4', '#10B981']
+    const categoryData = top3.length
+      ? top3.map((t, i) => ({ name: t.name, value: totalTop ? Math.round((t.count / totalTop) * 100) : 0, color: palette[i % palette.length] }))
+      : [{ name: 'Services', value: 100, color: '#8B5CF6' }]
 
     // Click trends last 7 days
     const trendDays = 7
@@ -106,30 +108,30 @@ export default async function handler(req, res) {
     }
     const clickTrends = Array.from(clicksByDay.entries()).map(([k, v]) => ({ label: fmtDate(new Date(k)), growth: v }))
 
-    // Top items (by clicks in range) with revenue in range
+    // Top services (by clicks in range) with revenue in range
     const { data: rangeClicks } = await supabase
       .from('order_clicks')
-      .select('item_id, created_at, items(title)')
+      .select('service_id, created_at, services(title)')
       .gte('created_at', startOfDay(new Date(Date.now() - (days-1)*24*60*60*1000)).toISOString())
 
-    const clicksCountByItem = new Map() // id -> {name, clicks}
+    const clicksByService = new Map() // id -> {name, clicks}
     for (const r of rangeClicks || []) {
-      if (!r.item_id) continue
-      const key = r.item_id
-      const curr = clicksCountByItem.get(key) || { name: r.items?.title || 'Unknown', clicks: 0 }
+      if (!r.service_id) continue
+      const key = r.service_id
+      const curr = clicksByService.get(key) || { name: r.services?.title || 'Unknown', clicks: 0 }
       curr.clicks += 1
-      clicksCountByItem.set(key, curr)
+      clicksByService.set(key, curr)
     }
 
-    // revenue by item in same period
-    const revenueByItem = new Map()
+    // revenue by service in same period
+    const revenueByService = new Map()
     for (const b of periodBookings || []) {
-      if (!b.item_id) continue
-      revenueByItem.set(b.item_id, (revenueByItem.get(b.item_id) || 0) + Number(b.final_price || 0))
+      if (!b.service_id) continue
+      revenueByService.set(b.service_id, (revenueByService.get(b.service_id) || 0) + Number(b.final_price || 0))
     }
 
-    const topItems = Array.from(clicksCountByItem.entries())
-      .map(([id, v]) => ({ name: v.name, clicks: v.clicks, revenue: Math.round(revenueByItem.get(id) || 0) }))
+    const topItems = Array.from(clicksByService.entries())
+      .map(([id, v]) => ({ name: v.name, clicks: v.clicks, revenue: Math.round(revenueByService.get(id) || 0) }))
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 4)
 

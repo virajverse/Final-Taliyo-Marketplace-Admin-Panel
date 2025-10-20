@@ -1,7 +1,10 @@
 import { supabaseAdmin } from '../../../lib/supabaseClient'
+import { requireAdmin } from '../admin/_auth'
 
 export default async function handler(req, res) {
   if (!supabaseAdmin) return res.status(500).json({ error: 'Server not configured' })
+  const ok = requireAdmin(req, res)
+  if (!ok) return
 
   try {
     if (req.method === 'GET') {
@@ -14,6 +17,11 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      const header = req.headers['x-csrf-token'] || ''
+      const cookieHeader = req.headers.cookie || ''
+      const cookieMap = cookieHeader.split(';').reduce((acc, part) => { const [k, ...v] = part.trim().split('='); if (!k) return acc; acc[k] = v.join('='); return acc }, {})
+      const cookieToken = cookieMap['csrf_token'] || ''
+      if (!header || !cookieToken || header !== cookieToken) return res.status(403).json({ error: 'csrf_failed' })
       const payload = req.body || {}
       const base = {
         from_email: payload.from_email,

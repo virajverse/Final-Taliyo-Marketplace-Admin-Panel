@@ -41,6 +41,10 @@ const Settings = ({ user }) => {
     supportEmail: ''
   })
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   useEffect(() => {
     if (user) {
       loadUserProfile()
@@ -49,31 +53,31 @@ const Settings = ({ user }) => {
 
   const loadUserProfile = async () => {
     try {
-      // Load from localStorage if available
-      const savedProfile = localStorage.getItem('adminProfile')
-      const savedNotifications = localStorage.getItem('adminNotifications')
-      const savedSystemSettings = localStorage.getItem('adminSystemSettings')
-      
-      if (savedProfile) {
-        setProfileData(JSON.parse(savedProfile))
-      } else {
-        setProfileData({
-          name: '',
-          email: user?.email || '',
-          phone: '',
-          bio: ''
-        })
-      }
-      
-      if (savedNotifications) {
-        setNotificationSettings(JSON.parse(savedNotifications))
-      }
-      
-      if (savedSystemSettings) {
-        setSystemSettings(JSON.parse(savedSystemSettings))
-      }
+      const res = await fetch('/api/admin/settings')
+      if (res.status === 401) return
+      const json = await res.json()
+      setProfileData({
+        name: json?.profile?.name || '',
+        email: json?.profile?.email || user?.email || '',
+        phone: json?.profile?.phone || '',
+        bio: json?.profile?.bio || ''
+      })
+      setNotificationSettings({
+        emailNotifications: !!json?.notifications?.emailNotifications,
+        newBookings: !!json?.notifications?.newBookings,
+        newMessages: !!json?.notifications?.newMessages,
+        weeklyReports: !!json?.notifications?.weeklyReports,
+        marketingEmails: !!json?.notifications?.marketingEmails
+      })
+      setSystemSettings({
+        maintenanceMode: !!json?.system?.maintenanceMode,
+        allowRegistrations: json?.system?.allowRegistrations !== false,
+        autoApproveServices: !!json?.system?.autoApproveServices,
+        maxFileSize: String(json?.system?.maxFileSize ?? '10'),
+        supportEmail: json?.system?.supportEmail || ''
+      })
     } catch (error) {
-      console.error('Error loading profile:', error)
+      console.error('Error loading settings:', error)
     }
   }
 
@@ -84,16 +88,12 @@ const Settings = ({ user }) => {
     setSuccess('')
 
     try {
-      // Save to localStorage
-      localStorage.setItem('adminProfile', JSON.stringify(profileData))
-      
-      // Update session data
-      const currentSession = JSON.parse(localStorage.getItem('adminAuth') || '{}')
-      currentSession.profile = profileData
-      localStorage.setItem('adminAuth', JSON.stringify(currentSession))
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+        body: JSON.stringify({ profile: profileData })
+      })
+      if (!res.ok) throw new Error('failed')
       setSuccess('Profile updated successfully')
     } catch (error) {
       setError('Failed to update profile')
@@ -109,11 +109,12 @@ const Settings = ({ user }) => {
     setSuccess('')
 
     try {
-      // Save to localStorage
-      localStorage.setItem('adminNotifications', JSON.stringify(notificationSettings))
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+        body: JSON.stringify({ notifications: notificationSettings })
+      })
+      if (!res.ok) throw new Error('failed')
       setSuccess('Notification settings updated successfully')
     } catch (error) {
       setError('Failed to update notification settings')
@@ -129,11 +130,12 @@ const Settings = ({ user }) => {
     setSuccess('')
 
     try {
-      // Save to localStorage
-      localStorage.setItem('adminSystemSettings', JSON.stringify(systemSettings))
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
+        body: JSON.stringify({ system: systemSettings })
+      })
+      if (!res.ok) throw new Error('failed')
       setSuccess('System settings updated successfully')
     } catch (error) {
       setError('Failed to update system settings')
@@ -407,7 +409,7 @@ const Settings = ({ user }) => {
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="font-medium text-gray-900">Password</h3>
-                          <p className="text-sm text-gray-500">Simple authentication enabled</p>
+                          <p className="text-sm text-gray-500">Cookie-based session enabled</p>
                         </div>
                         <button 
                           onClick={() => alert('Password change functionality disabled for simple auth')}
@@ -428,7 +430,7 @@ const Settings = ({ user }) => {
                         <div className="ml-3">
                           <h3 className="font-medium text-yellow-800">Two-Factor Authentication - Disabled</h3>
                           <p className="text-sm text-yellow-700 mt-1">
-                            2FA is disabled for development purposes. This admin panel uses simple localStorage-based authentication for easier testing and development.
+                            2FA is currently disabled. Admin authentication uses secure HttpOnly cookies. Enable 2FA for production.
                           </p>
                           <div className="mt-3">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -443,12 +445,11 @@ const Settings = ({ user }) => {
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="font-medium text-gray-900">Login Sessions</h3>
-                          <p className="text-sm text-gray-500">Current session: Browser localStorage</p>
+                          <p className="text-sm text-gray-500">Current session: Secure HttpOnly cookie</p>
                         </div>
                         <button 
-                          onClick={() => {
-                            localStorage.removeItem('adminAuth')
-                            alert('Session cleared! You will be redirected to login.')
+                          onClick={async () => {
+                            try { await fetch('/api/admin/auth/logout', { method: 'POST', headers: { 'x-csrf-token': getCsrf() } }) } catch {}
                             window.location.href = '/login'
                           }}
                           className="btn-secondary text-red-600 hover:bg-red-50"

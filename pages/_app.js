@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { checkSession } from '../lib/simpleAuth'
 import '../styles/globals.css'
 
 function MyApp({ Component, pageProps }) {
@@ -12,36 +11,25 @@ function MyApp({ Component, pageProps }) {
     checkAuthStatus()
   }, [router.pathname])
 
-  const checkAuthStatus = () => {
+  const checkAuthStatus = async () => {
     setLoading(true)
-    
     try {
-      const session = checkSession()
-      
-      if (session) {
-        setUser(session)
-        
-        // Redirect to dashboard if on login page
-        if (router.pathname === '/login') {
-          router.push('/')
-        }
+      const res = await fetch('/api/admin/auth/me')
+      if (res.ok) {
+        const data = await res.json()
+        setUser(data.admin)
+        if (router.pathname === '/login') router.push('/')
       } else {
         setUser(null)
-        
-        // Redirect to login if trying to access protected route
-        if (router.pathname !== '/login') {
-          router.push('/login')
-        }
+        if (router.pathname !== '/login') router.push('/login')
       }
     } catch (error) {
       console.error('Auth check error:', error)
       setUser(null)
-      if (router.pathname !== '/login') {
-        router.push('/login')
-      }
+      if (router.pathname !== '/login') router.push('/login')
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }
 
   // Show loading spinner during auth check

@@ -72,6 +72,10 @@ const Products = ({ user }) => {
   const [bulkAssets, setBulkAssets] = useState(null)
   const [seeding, setSeeding] = useState(false)
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -165,8 +169,9 @@ const Products = ({ user }) => {
     setSuccess('')
     try {
       setSeeding(true)
-      const res = await fetch('/api/admin/services/seed-sample', { method: 'POST' })
+      const res = await fetch('/api/admin/services/seed-sample', { method: 'POST', headers: { 'x-csrf-token': getCsrf() } })
       const data = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(data?.message || data?.error || 'Seed failed')
       setSuccess(`Created ${data.created} sample products`)
       await loadProducts()
@@ -195,7 +200,7 @@ const Products = ({ user }) => {
       for (const file of toUpload) {
         const body = new FormData()
         body.append('file', file)
-        const res = await fetch('/api/admin/storage/upload', { method: 'POST', body })
+        const res = await fetch('/api/admin/storage/upload', { method: 'POST', headers: { 'x-csrf-token': getCsrf() }, body })
         const json = await res.json()
         if (res.ok && json?.url) newUrls.push(json.url)
       }
@@ -287,8 +292,9 @@ const Products = ({ user }) => {
       setSyncing(true)
       setError('')
       setSuccess('')
-      const res = await fetch('/api/admin/sync-items-to-services', { method: 'POST' })
+      const res = await fetch('/api/admin/sync-items-to-services', { method: 'POST', headers: { 'x-csrf-token': getCsrf() } })
       const data = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(data?.message || 'Sync failed')
       setSuccess(`Synced: ${data.created} created, ${data.updated} updated`)
       await loadProducts()
@@ -322,8 +328,9 @@ const Products = ({ user }) => {
       const body = new FormData()
       body.append('file', bulkFile)
       if (bulkAssets) body.append('assets', bulkAssets)
-      const res = await fetch('/api/admin/services/bulk-upload', { method: 'POST', body })
+      const res = await fetch('/api/admin/services/bulk-upload', { method: 'POST', headers: { 'x-csrf-token': getCsrf() }, body })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Upload failed')
       setBulkResult(json)
       setSuccess(`Uploaded ${json.created} of ${json.totalRows}`)
@@ -389,19 +396,21 @@ const Products = ({ user }) => {
           }
           const res = await fetch(`/api/admin/items/${editingProduct.id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
             body: JSON.stringify(body)
           })
           const json = await res.json()
+          if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
           if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
           setProducts(products.map(p => (p.id === editingProduct.id ? { ...json.data, source: 'items', price_min: json.data.price, price_max: json.data.price } : p)))
         } else {
           const res = await fetch(`/api/admin/services/${editingProduct.id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
             body: JSON.stringify(baseService)
           })
           const json = await res.json()
+          if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
           if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
           setProducts(products.map(p => (p.id === editingProduct.id ? { ...json.data, source: 'services' } : p)))
         }
@@ -410,10 +419,11 @@ const Products = ({ user }) => {
         // Create new service
         const res = await fetch('/api/admin/services', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify({ ...baseService, created_at: new Date().toISOString() })
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
         setProducts([{ ...json.data, source: 'services' }, ...products])
         setSuccess('Product created successfully')
@@ -475,8 +485,9 @@ const Products = ({ user }) => {
     try {
       const product = products.find(p => p.id === productId)
       const url = product?.source === 'items' ? `/api/admin/items/${productId}` : `/api/admin/services/${productId}`
-      const res = await fetch(url, { method: 'DELETE' })
+      const res = await fetch(url, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
       setProducts(products.filter(product => product.id !== productId))
       setSuccess('Product deleted successfully')
@@ -492,10 +503,11 @@ const Products = ({ user }) => {
       const url = product?.source === 'items' ? `/api/admin/items/${productId}` : `/api/admin/services/${productId}`
       const res = await fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ is_active: !currentStatus })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
       setProducts(products.map(product => (
         product.id === productId ? { ...json.data, source: product.source } : product

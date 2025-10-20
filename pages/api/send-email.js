@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { supabaseAdmin } from '../../lib/supabaseClient'
+import { requireAdmin } from './admin/_auth'
 
 function getAllowedFrom() {
   const set = new Set()
@@ -50,6 +51,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    const ok = requireAdmin(req, res)
+    if (!ok) return
+    const header = req.headers['x-csrf-token'] || ''
+    const cookieHeader = req.headers.cookie || ''
+    const cookieMap = cookieHeader.split(';').reduce((acc, part) => { const [k, ...v] = part.trim().split('='); if (!k) return acc; acc[k] = v.join('='); return acc }, {})
+    const cookieToken = cookieMap['csrf_token'] || ''
+    if (!header || !cookieToken || header !== cookieToken) return res.status(403).json({ error: 'csrf_failed' })
     const body = req.body || {}
     const to = Array.isArray(body.to) ? body.to : (body.to ? [body.to] : [])
     const cc = Array.isArray(body.cc) ? body.cc : (body.cc ? [body.cc] : [])

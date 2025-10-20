@@ -34,6 +34,10 @@ const ManageItems = ({ user }) => {
     whatsapp_link: ''
   })
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   useEffect(() => {
     if (user) {
       loadItems()
@@ -115,10 +119,11 @@ const ManageItems = ({ user }) => {
         // Update existing item
         const res = await fetch(`/api/admin/items/${editingItem.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(itemData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
         setItems(items.map(item => (
@@ -130,10 +135,11 @@ const ManageItems = ({ user }) => {
         itemData.created_at = new Date().toISOString()
         const res = await fetch('/api/admin/items', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
           body: JSON.stringify(itemData)
         })
         const json = await res.json()
+        if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
         if (!res.ok) throw new Error(json?.message || json?.error || 'Create failed')
 
         setItems([json.data, ...items])
@@ -176,8 +182,9 @@ const ManageItems = ({ user }) => {
     }
 
     try {
-      const res = await fetch(`/api/admin/items/${itemId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/items/${itemId}`, { method: 'DELETE', headers: { 'x-csrf-token': getCsrf() } })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Delete failed')
 
       setItems(items.filter(item => item.id !== itemId))
@@ -192,10 +199,11 @@ const ManageItems = ({ user }) => {
     try {
       const res = await fetch(`/api/admin/items/${itemId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ is_active: !currentStatus })
       })
       const json = await res.json()
+      if (res.status === 401) { window.location.href = '/login?error=unauthorized'; return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed')
 
       setItems(items.map(item => (

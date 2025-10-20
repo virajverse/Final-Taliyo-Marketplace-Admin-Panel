@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import ModernLayout from '../components/ModernLayout';
 import { createClient } from '@supabase/supabase-js';
-import { checkSession } from '../lib/simpleAuth';
 
 const safeParse = (v, fallback = []) => {
   try {
@@ -20,7 +19,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default function Bookings() {
+export default function Bookings({ user }) {
   const router = useRouter();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,13 +29,6 @@ export default function Bookings() {
   const modalOpen = !!selectedBooking;
 
   useEffect(() => {
-    // Check authentication via shared session
-    const session = checkSession();
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-
     fetchBookings();
   }, [router, statusFilter]);
 
@@ -67,6 +59,7 @@ export default function Bookings() {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
       const res = await fetch(`/api/admin/bookings?${params.toString()}`);
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || json?.error || 'Failed to load bookings');
       setBookings(json?.data || []);
@@ -77,14 +70,19 @@ export default function Bookings() {
     }
   };
 
+  const getCsrf = () => {
+    try { return document.cookie.split('; ').find(x => x.startsWith('csrf_token='))?.split('=')[1] || '' } catch { return '' }
+  }
+
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ status: newStatus })
       });
       const json = await res.json();
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed');
 
       // Refresh bookings
@@ -100,10 +98,11 @@ export default function Bookings() {
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ timelineStep: step, timelineLabel: label, timelineNote: note })
       });
       const json = await res.json();
+      if (res.status === 401) { router.push('/login?error=unauthorized'); return }
       if (!res.ok) throw new Error(json?.message || json?.error || 'Update failed');
       fetchBookings();
       alert('Order progress updated successfully');
@@ -449,7 +448,7 @@ export default function Bookings() {
   };
 
   return (
-    <ModernLayout user={{ email: 'admin@taliyo.com' }}>
+    <ModernLayout user={user}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

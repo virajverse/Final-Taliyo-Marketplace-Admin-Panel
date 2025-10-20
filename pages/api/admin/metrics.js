@@ -1,7 +1,27 @@
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit } from './_rateLimit'
+import { requireAdmin } from './_auth'
+
+// Simple in-memory cache (per Vercel instance)
+let CACHE = { at: 0, data: null }
+const TTL_MS = 30 * 1000
 
 export default async function handler(req, res) {
   try {
+    // Require admin before anything else
+    const ok = requireAdmin(req, res)
+    if (!ok) return
+
+    // Rate limit
+    if (!rateLimit(req, res, 'admin_metrics', 30, 60_000)) return
+
+    // Serve from in-memory cache (instance-local)
+    const now = Date.now()
+    if (CACHE.data && (now - CACHE.at) < TTL_MS) {
+      res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
+      return res.status(200).json(CACHE.data)
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseUrl || !serviceKey) {
@@ -55,7 +75,6 @@ export default async function handler(req, res) {
       .from('order_clicks')
       .select(`
         *,
-        items (title, type),
         services (title)
       `)
       .order('created_at', { ascending: false })
@@ -64,49 +83,47 @@ export default async function handler(req, res) {
     const recentActivity = (clicksRows || []).map(c => ({
       action: 'Order Click',
       user: c.user_ip || 'Visitor',
-      target: c.services?.title || c.items?.title || 'Unknown',
+      target: c.services?.title || 'Unknown',
       timestamp: new Date(c.created_at).toISOString(),
       status: 'Success'
     }))
 
-    const now = new Date()
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const start = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
-      const end = new Date(now.getFullYear(), now.getMonth() - (11 - i) + 1, 1)
-      return { start, end }
-    })
+    // Performance: single query for last 12 months then bucket in code
+    const nowDt = new Date()
+    const start12 = new Date(nowDt.getFullYear(), nowDt.getMonth() - 11, 1)
+    const { data: perfRows } = await supabase
+      .from('order_clicks')
+      .select('created_at')
+      .gte('created_at', start12.toISOString())
 
-    const perfCounts = []
-    for (const m of months) {
-      const { count } = await supabase
-        .from('order_clicks')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', m.start.toISOString())
-        .lt('created_at', m.end.toISOString())
-      perfCounts.push(count || 0)
+    const months = Array.from({ length: 12 }, (_, i) => new Date(nowDt.getFullYear(), nowDt.getMonth() - (11 - i), 1))
+    const counts = new Array(12).fill(0)
+    for (const r of (perfRows || [])) {
+      const d = new Date(r.created_at)
+      const index = (d.getFullYear() - months[0].getFullYear()) * 12 + (d.getMonth() - months[0].getMonth())
+      if (index >= 0 && index < 12) counts[index]++
     }
     const performanceData = months.map((m, i) => ({
-      month: m.start.toLocaleDateString('en-US', { month: 'short' }),
-      growth: perfCounts[i]
+      month: m.toLocaleDateString('en-US', { month: 'short' }),
+      growth: counts[i]
     }))
 
     // Category distribution: top service categories by share
-    const { data: cats } = await supabase
-      .from('categories')
-      .select('id,name')
-      .eq('is_active', true)
+    // Category distribution: 2 queries (cats + service category_ids), compute in code
+    const [{ data: cats }, { data: svcCats }] = await Promise.all([
+      supabase.from('categories').select('id,name').eq('is_active', true),
+      supabase.from('services').select('category_id').eq('is_active', true)
+    ])
 
-    const counts = []
-    for (const cat of (cats || [])) {
-      const { count } = await supabase
-        .from('services')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-        .eq('category_id', cat.id)
-      counts.push({ name: cat.name, count: count || 0 })
+    const catMap = new Map()
+    for (const sc of (svcCats || [])) {
+      const id = sc.category_id
+      if (!id) continue
+      catMap.set(id, (catMap.get(id) || 0) + 1)
     }
-    counts.sort((a, b) => b.count - a.count)
-    const top = counts.slice(0, 3)
+    const countsArr = (cats || []).map(c => ({ name: c.name, count: catMap.get(c.id) || 0 }))
+    countsArr.sort((a, b) => b.count - a.count)
+    const top = countsArr.slice(0, 3)
     const totalTop = top.reduce((s, r) => s + r.count, 0)
     const palette = ['#8B5CF6', '#06B6D4', '#10B981']
     const categoryData = top.length
@@ -115,7 +132,7 @@ export default async function handler(req, res) {
 
     const conversionRate = clicksCount ? Number((((bookingsCount || 0) / clicksCount) * 100).toFixed(1)) : 0
 
-    return res.status(200).json({
+    const payload = {
       totalItems: itemsCount,
       totalClicks: clicksCount,
       totalAdmins: adminsCount,
@@ -127,7 +144,11 @@ export default async function handler(req, res) {
       performanceData,
       categoryData,
       conversionRate
-    })
+    }
+
+    CACHE = { at: Date.now(), data: payload }
+    res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
+    return res.status(200).json(payload)
   } catch (err) {
     return res.status(500).json({ error: 'metrics_failed', message: err?.message })
   }
