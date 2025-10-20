@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       if (!rateLimit(req, res, 'admin_banners_read', 300, 60 * 1000)) return
       const { data, error } = await supabase
         .from('banners')
-        .select('id,image_url,video_url,cta_text,cta_url,cta_align,start_at,end_at,target,duration_ms,overlay_opacity,alt_text,aria_label,active,sort_order,created_at,updated_at')
+        .select('id,image_url,video_url,cta_text,cta_url,cta_align,start_at,end_at,target,duration_ms,overlay_opacity,alt_text,aria_label,active,sort_order,created_at')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error

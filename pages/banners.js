@@ -131,11 +131,15 @@ export default function Banners({ user }) {
         body: JSON.stringify(clean)
       })
       if (res.status === 401) { router.push('/login?error=unauthorized'); return }
-      if (!res.ok) throw new Error('failed')
+      if (!res.ok) {
+        let msg = 'failed'
+        try { const j = await res.json(); msg = j?.message || j?.error || msg } catch {}
+        throw new Error(msg)
+      }
       setEditing(null)
       fetchAll()
     } catch (e) {
-      alert('Save failed')
+      alert(`Save failed: ${e?.message || 'unknown error'}`)
       console.error(e)
     }
   };
