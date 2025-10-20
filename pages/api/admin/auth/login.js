@@ -46,8 +46,10 @@ export default async function handler(req, res) {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
     const adminPassword = process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD
     const adminName = process.env.ADMIN_NAME || process.env.NEXT_PUBLIC_ADMIN_NAME || 'Admin'
+    const jwtSecret = process.env.ADMIN_JWT_SECRET
 
     if (!adminEmail || !adminPassword) return res.status(500).json({ error: 'missing_env' })
+    if (!jwtSecret) return res.status(500).json({ error: 'missing_admin_jwt_secret' })
     if (email !== adminEmail || password !== adminPassword) { recordFailure(ip); return res.status(401).json({ error: 'invalid_credentials' }) }
 
     setAuthCookie(res, { email })
@@ -55,6 +57,6 @@ export default async function handler(req, res) {
     await auditAction(req, { email }, 'login', 'admins', null, null, { email })
     return res.status(200).json({ ok: true, name: adminName })
   } catch (e) {
-    return res.status(500).json({ error: 'login_failed' })
+    return res.status(500).json({ error: 'login_failed', message: e?.message || 'failed' })
   }
 }

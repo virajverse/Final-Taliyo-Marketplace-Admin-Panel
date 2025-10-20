@@ -38,8 +38,17 @@ const Login = ({ user }) => {
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrf() },
         body: JSON.stringify({ email, password })
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || 'Login failed')
+      const ctype = res.headers.get('content-type') || ''
+      let payload = null
+      if (ctype.includes('application/json')) {
+        payload = await res.json()
+      } else {
+        const text = await res.text()
+        if (!res.ok) throw new Error(text?.slice(0, 180) || 'Server error')
+        // If somehow ok but not JSON, show text
+        payload = { ok: true }
+      }
+      if (!res.ok) throw new Error(payload?.error || payload?.message || 'Login failed')
 
       // Cookie has been set by server. Redirect to dashboard.
       router.push('/')
